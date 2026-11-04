@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TMCare - เทศบาลตำบลตันหยงมัส</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0284c7">
+
+  <!-- Google Fonts: Prompt & Sarabun -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Leaflet CSS & JS (แผนที่ OpenStreetMap ไม่เสียค่าใช้จ่าย) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col pb-20 md:pb-6">
+
+  <!-- ================= TOP HEADER ================= -->
+  <header class="bg-gradient-to-r from-rose-700 via-pink-600 to-rose-500 text-white shadow-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <!-- Brand & Municipality -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center text-white text-xl shadow-inner">
+          <i class="fa-solid fa-hand-holding-heart"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-lg md:text-xl font-bold tracking-tight">TMCare</h1>
+            <span class="text-xs bg-rose-800/80 px-2 py-0.5 rounded-full border border-pink-300/30">ทต.ตันหยงมัส</span>
+          </div>
+          <p class="text-xs text-pink-100 hidden sm:block">ระบบติดตามและดูแลผู้พิการและกลุ่มเปราะบางระดับท้องถิ่น</p>
+        </div>
+      </div>
+
+      <!-- Right Controls: Community Badge, Role, SOS, Settings -->
+      <div class="flex items-center space-x-2 md:space-x-3">
+        <!-- SOS Quick Button -->
+        <button id="btn-quick-sos" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold flex items-center space-x-1 shadow-sm pulse-danger">
+          <i class="fa-solid fa-phone-volume"></i>
+          <span>แจ้งเหตุ 1669</span>
+        </button>
+
+        <!-- Current User / Community Badge -->
+        <div id="user-badge-container" class="hidden md:flex items-center space-x-2 bg-rose-800/60 px-3 py-1.5 rounded-lg border border-pink-300/20 text-xs">
+          <i class="fa-solid fa-user-shield text-pink-200"></i>
+          <div>
+            <div id="user-badge-role" class="font-semibold text-white">ผู้ใช้งาน</div>
+            <div id="user-badge-community" class="text-pink-100 text-[11px] truncate max-w-[140px]">ชุมชน</div>
+          </div>
+        </div>
+
+        <!-- Database Provider Pill -->
+        <button id="btn-db-status" title="คลิกเพื่อตั้งค่าการเชื่อมต่อฐานข้อมูล" class="text-[11px] bg-rose-900/70 hover:bg-rose-900 text-pink-100 px-2.5 py-1.5 rounded-lg border border-rose-500/30 flex items-center space-x-1">
+          <span id="db-indicator-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span id="db-provider-name">MOCK</span>
+        </button>
+
+        <!-- Switch Role / Logout -->
+        <button id="btn-logout" title="สลับบทบาท / ออกจากระบบ" class="text-white hover:text-red-200 bg-white/10 hover:bg-white/20 p-2 rounded-lg text-sm">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Community Bar for Mobile -->
+    <div id="mobile-community-bar" class="md:hidden bg-rose-800 px-4 py-1.5 text-xs text-pink-100 flex items-center justify-between border-t border-rose-600/50">
+      <div class="flex items-center space-x-2 truncate">
+        <i class="fa-solid fa-location-dot text-amber-300"></i>
+        <span id="mobile-community-name" class="font-medium truncate">กำลังโหลด...</span>
+      </div>
+      <span id="mobile-role-label" class="text-[11px] bg-rose-900 px-2 py-0.5 rounded text-pink-100">กรรมการ</span>
+    </div>
+  </header>
+
+  <!-- ================= GAS SETUP NOTIFICATION BANNER ================= -->
+  <div id="gas-setup-banner" class="hidden bg-pink-50 border-b border-pink-200 px-4 py-2 text-xs text-rose-900">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-cloud-arrow-up text-rose-600 text-sm"></i>
+        <span><strong>พร้อมเชื่อมต่อ Google Sheets:</strong> ยังไม่ได้ระบุ Google Apps Script Web App URL กรุณาตั้งค่าเพื่อดึงข้อมูลจริง</span>
+      </div>
+      <button onclick="app.openModal('modal-settings')" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-md font-medium text-xs whitespace-nowrap shadow-sm">
+        <i class="fa-solid fa-gear"></i> ตั้งค่า Web App URL
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= DISASTER BANNER (Alert Mode) ================= -->
+  <div id="disaster-alert-banner" class="bg-amber-500 text-amber-950 px-4 py-2 text-xs md:text-sm font-medium flex items-center justify-between shadow-inner">
+    <div class="max-w-7xl mx-auto w-full flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-triangle-exclamation text-amber-900 text-base animate-bounce"></i>
+        <span><strong>โหมดเฝ้าระวังอุทกภัย ฤดูมรสุมปลายปี 2569:</strong> มีผู้ป่วยวิกฤต/ติดเตียงที่ต้องการความช่วยเหลืออพยพ <span id="banner-need-help-count" class="font-bold text-red-900 underline">2 ราย</span></span>
+      </div>
+      <button onclick="app.switchTab('disaster')" class="bg-amber-900 text-white text-xs px-2.5 py-1 rounded hover:bg-black transition">
+        ตรวจสอบจุดอพยพ
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= MAIN NAVIGATION TABS (DESKTOP/TABLET) ================= -->
+  <nav class="hidden md:block bg-white border-b border-slate-200 shadow-sm sticky top-[68px] z-30">
+    <div class="max-w-7xl mx-auto px-4 flex justify-start space-x-8">
+      <button onclick="app.switchTab('dashboard')" class="nav-tab active-tab py-3 px-4 text-xs md:text-sm font-semibold border-b-2 border-rose-600 text-rose-700 flex items-center space-x-1.5 transition" data-tab="dashboard">
+        <i class="fa-solid fa-chart-pie"></i>
+        <span>ภาพรวม</span>
+      </button>
+      <button onclick="app.switchTab('beneficiaries')" class="nav-tab py-3 px-4 text-xs md:text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center space-x-1.5 transition" data-tab="beneficiaries">
+        <i class="fa-solid fa-id-card"></i>
+        <span>ทะเบียน & เยี่ยมบ้าน</span>
+      </button>
+      <button onclick="app.switchTab('welfare')" class="nav-tab py-3 px-4 text-xs md:text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center space-x-1.5 transition" data-tab="welfare">
+        <i class="fa-solid fa-gift"></i>
+        <span>สวัสดิการ & ช่วยเหลือ</span>
+        <span id="badge-pending-welfare" class="hidden bg-amber-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">1</span>
+      </button>
+      <button onclick="app.switchTab('disaster')" class="nav-tab py-3 px-4 text-xs md:text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center space-x-1.5 transition" data-tab="disaster">
+        <i class="fa-solid fa-map-location-dot"></i>
+        <span>EMS & จัดการภัยพิบัติ</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ================= CONTENT CONTAINER ================= -->
+  <main class="max-w-7xl mx-auto px-3 sm:px-4 py-4 flex-1 w-full pb-28 md:pb-10">
+
+    <!-- ---------------------------------------------------- -->
+    <!-- TAB 1: DASHBOARD (ภาพรวมและสถิติ) -->
+    <!-- ---------------------------------------------------- -->
+    <section id="tab-dashboard" class="space-y-4">
+      <!-- Title & Scope Indicator -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800 flex items-center space-x-2">
+            <span>สรุปข้อมูลความเปราะบาง</span>
+            <span id="dashboard-scope-badge" class="text-xs bg-rose-100 text-rose-800 px-2.5 py-1 rounded-full font-normal border border-rose-200">
+              ทุกชุมชน
+            </span>
+          </h2>
+          <p class="text-xs text-slate-500">ข้อมูลผู้พิการ ผู้ป่วยติดเตียง และการจัดสวัสดิการในระดับชุมชน</p>
+        </div>
+        
+        <!-- Filter for Officer/Executive -->
+        <div id="dashboard-com-filter-box" class="hidden flex items-center space-x-2 text-xs">
+          <label class="text-slate-600 font-medium whitespace-nowrap">เลือกชุมชน:</label>
+          <select id="select-dashboard-community" onchange="app.filterDashboardCommunity(this.value)" class="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:ring-2 focus:ring-rose-500">
+            <option value="">-- รวมทั้ง 7 ชุมชน --</option>
+            <!-- Generated dynamically -->
+          </select>
+        </div>
+      </div>
+
+      <!-- Metric Cards (Triage 3 สี + คำร้อง + ภัยพิบัติ) -->
+      <div class="grid grid-cols-2 lg:grid-cols-6 gap-2.5 sm:gap-3">
+        <!-- Total -->
+        <div class="bg-white p-3 rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-between min-h-[92px]">
+          <div class="metric-card-title truncate">กลุ่มเปราะบางทั้งหมด</div>
+          <div id="stat-total" class="metric-card-val text-slate-800">0</div>
+          <div class="text-[11px] text-slate-400">รายในระบบ</div>
+        </div>
+
+        <!-- Red Triage -->
+        <div class="bg-white p-3 rounded-xl border border-red-200/90 shadow-sm triage-border-red flex flex-col justify-between min-h-[92px]">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-red-700">🔴 สีแดง</span>
+            <span class="text-[10px] bg-red-100 text-red-700 font-semibold px-1.5 py-0.5 rounded">ติดเตียง</span>
+          </div>
+          <div id="stat-red" class="metric-card-val text-red-600">0</div>
+          <div class="text-[11px] text-slate-400">ADL 0-4 (พึ่งพิง 100%)</div>
+        </div>
+
+        <!-- Yellow Triage -->
+        <div class="bg-white p-3 rounded-xl border border-amber-200/90 shadow-sm triage-border-yellow flex flex-col justify-between min-h-[92px]">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-amber-700">🟡 สีเหลือง</span>
+            <span class="text-[10px] bg-amber-100 text-amber-700 font-semibold px-1.5 py-0.5 rounded">ติดบ้าน</span>
+          </div>
+          <div id="stat-yellow" class="metric-card-val text-amber-600">0</div>
+          <div class="text-[11px] text-slate-400">ADL 5-11 (พึ่งพาปานกลาง)</div>
+        </div>
+
+        <!-- Green Triage -->
+        <div class="bg-white p-3 rounded-xl border border-emerald-200/90 shadow-sm triage-border-green flex flex-col justify-between min-h-[92px]">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-emerald-700">🟢 สีเขียว</span>
+            <span class="text-[10px] bg-emerald-100 text-emerald-700 font-semibold px-1.5 py-0.5 rounded">ติดสังคม</span>
+          </div>
+          <div id="stat-green" class="metric-card-val text-emerald-600">0</div>
+          <div class="text-[11px] text-slate-400">ADL 12-20 (ช่วยเหลือตนเอง)</div>
+        </div>
+
+        <!-- Pending Welfare -->
+        <div class="bg-white p-3 rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-between min-h-[92px]">
+          <div class="metric-card-title truncate">คำร้องสวัสดิการรอตรวจ</div>
+          <div id="stat-pending-welfare" class="metric-card-val text-rose-600">0</div>
+          <div class="text-[11px] text-slate-400">ผ้าอ้อม/รถเข็น/เงิน</div>
+        </div>
+
+        <!-- Disaster Need Help -->
+        <div class="bg-white p-3 rounded-xl border border-rose-300 shadow-sm bg-rose-50/40 flex flex-col justify-between min-h-[92px]">
+          <div class="text-xs font-semibold text-rose-700 truncate">ขอช่วยเหลือภัยพิบัติ</div>
+          <div id="stat-need-help" class="metric-card-val text-rose-600">0</div>
+          <div class="text-[11px] text-rose-600 font-medium">ต้องการอพยพด่วน</div>
+        </div>
+      </div>
+
+      <!-- Charts & Breakdown Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Chart: Triage Proportion -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 class="text-xs font-semibold text-slate-700 w-full mb-2 flex items-center justify-between">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-solid fa-chart-pie text-rose-600"></i>
+                <span>สัดส่วนระดับความเร่งด่วน (Triage)</span>
+              </span>
+              <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-normal">3 ระดับ</span>
+            </h3>
+
+            <!-- Donut Chart Canvas Container -->
+            <div class="w-44 h-44 mx-auto relative my-1">
+              <canvas id="chart-triage"></canvas>
+            </div>
+
+            <!-- Legend 3 Columns -->
+            <div class="grid grid-cols-3 gap-2 w-full mt-3 text-center text-xs">
+              <div class="bg-red-50/80 p-2 rounded-lg border border-red-100 shadow-xs">
+                <span class="text-red-700 font-bold block text-[11px]">🔴 แดง</span>
+                <span id="chart-legend-red" class="text-red-900 font-semibold text-xs block mt-0.5">0 ราย</span>
+                <span class="text-[9.5px] text-slate-400 block">ติดเตียง</span>
+              </div>
+              <div class="bg-amber-50/80 p-2 rounded-lg border border-amber-100 shadow-xs">
+                <span class="text-amber-700 font-bold block text-[11px]">🟡 เหลือง</span>
+                <span id="chart-legend-yellow" class="text-amber-900 font-semibold text-xs block mt-0.5">0 ราย</span>
+                <span class="text-[9.5px] text-slate-400 block">ติดบ้าน</span>
+              </div>
+              <div class="bg-emerald-50/80 p-2 rounded-lg border border-emerald-100 shadow-xs">
+                <span class="text-emerald-700 font-bold block text-[11px]">🟢 เขียว</span>
+                <span id="chart-legend-green" class="text-emerald-900 font-semibold text-xs block mt-0.5">0 ราย</span>
+                <span class="text-[9.5px] text-slate-400 block">ติดสังคม</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom: ADL Criteria & Community Care Protocol Guide -->
+          <div class="mt-3.5 pt-3 border-t border-slate-100 w-full space-y-2 text-[11px]">
+            <div class="text-[11px] font-semibold text-slate-700 flex items-center justify-between">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-solid fa-clipboard-check text-rose-600"></i>
+                <span>เกณฑ์ ADL & แผนการดูแลในพื้นที่</span>
+              </span>
+              <span class="text-[10px] text-slate-400 font-normal">ทต.ตันหยงมัส</span>
+            </div>
+
+            <div class="space-y-1.5">
+              <!-- Red Protocol -->
+              <div class="bg-red-50/70 p-2 rounded-lg border border-red-100/90 flex items-center justify-between transition hover:bg-red-50">
+                <div class="flex items-center space-x-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span>
+                  <div>
+                    <div class="font-bold text-red-900 text-xs">สีแดง (ADL 0-4)</div>
+                    <div class="text-[10px] text-red-700">พึ่งพิง 100% • เยี่ยมทุก 1-2 สัปดาห์</div>
+                  </div>
+                </div>
+                <span class="text-[10px] bg-red-100 text-red-800 font-bold px-1.5 py-0.5 rounded border border-red-200 shrink-0">อพยพด่วน 1</span>
+              </div>
+
+              <!-- Yellow Protocol -->
+              <div class="bg-amber-50/70 p-2 rounded-lg border border-amber-100/90 flex items-center justify-between transition hover:bg-amber-50">
+                <div class="flex items-center space-x-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
+                  <div>
+                    <div class="font-bold text-amber-900 text-xs">สีเหลือง (ADL 5-11)</div>
+                    <div class="text-[10px] text-amber-700">พึ่งพิงปานกลาง • เยี่ยมเดือนละ 1 ครั้ง</div>
+                  </div>
+                </div>
+                <span class="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded border border-amber-200 shrink-0">อพยพด่วน 2</span>
+              </div>
+
+              <!-- Green Protocol -->
+              <div class="bg-emerald-50/70 p-2 rounded-lg border border-emerald-100/90 flex items-center justify-between transition hover:bg-emerald-50">
+                <div class="flex items-center space-x-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
+                  <div>
+                    <div class="font-bold text-emerald-900 text-xs">สีเขียว (ADL 12-20)</div>
+                    <div class="text-[10px] text-emerald-700">ช่วยตนเองได้ดี • ติดตามทุก 2-3 เดือน</div>
+                  </div>
+                </div>
+                <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">อพยพด่วน 3</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 7 Communities Breakdown Table (Especially for Executive/Officer) -->
+        <div class="lg:col-span-2 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-semibold text-slate-700 flex items-center space-x-1.5">
+              <i class="fa-solid fa-city text-rose-600"></i>
+              <span id="title-community-breakdown">สรุปสถานการณ์จำแนกตาม 7 ชุมชน ทต.ตันหยงมัส</span>
+            </h3>
+            <button onclick="app.printReport()" class="no-print text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded-lg flex items-center space-x-1.5 shadow-sm font-medium transition">
+              <i class="fa-solid fa-print text-rose-600"></i>
+              <span>พิมพ์รายงาน (A4 แนวนอน)</span>
+            </button>
+          </div>
+          <div class="overflow-x-auto -mx-2 sm:mx-0">
+            <table class="w-full text-xs text-left min-w-[460px] sm:min-w-full">
+              <thead class="bg-slate-50 text-slate-600 font-medium border-y border-slate-200">
+                <tr>
+                  <th class="py-2.5 px-3">ชื่อชุมชน</th>
+                  <th class="py-2.5 px-2 text-center text-red-600 font-semibold">🔴 แดง (ติดเตียง)</th>
+                  <th class="py-2.5 px-2 text-center text-amber-600">🟡 เหลือง</th>
+                  <th class="py-2.5 px-2 text-center text-emerald-600">🟢 เขียว</th>
+                  <th class="py-2.5 px-2 text-center font-bold">รวม (ราย)</th>
+                  <th class="py-2.5 px-2 text-center">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="table-community-breakdown" class="divide-y divide-slate-100">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ส่วนแสดงข้อมูลสถิติเชิงลึก: แยกเพศ, ช่วงอายุ, และอุปกรณ์จำเป็นเร่งด่วน -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <!-- 1. แยกตามเพศ (Gender Ratio) -->
+        <div class="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h4 class="font-bold text-xs sm:text-sm text-slate-800 flex items-center space-x-1.5">
+              <i class="fa-solid fa-venus-mars text-indigo-500"></i>
+              <span>สัดส่วนจำแนกตามเพศ</span>
+            </h4>
+            <span class="text-[11px] text-slate-400">กลุ่มเปราะบาง</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-center">
+            <div class="bg-sky-50/70 p-2.5 rounded-lg border border-sky-100">
+              <div class="text-sky-600 text-lg sm:text-xl font-bold flex items-center justify-center space-x-1">
+                <i class="fa-solid fa-mars text-sky-500 text-sm"></i>
+                <span id="stat-gender-male">0</span>
+              </div>
+              <div class="text-xs text-sky-900 font-semibold mt-0.5">เพศชาย</div>
+              <div id="stat-gender-male-pct" class="text-[10px] text-slate-400">0%</div>
+            </div>
+
+            <div class="bg-pink-50/70 p-2.5 rounded-lg border border-pink-100">
+              <div class="text-pink-600 text-lg sm:text-xl font-bold flex items-center justify-center space-x-1">
+                <i class="fa-solid fa-venus text-pink-500 text-sm"></i>
+                <span id="stat-gender-female">0</span>
+              </div>
+              <div class="text-xs text-pink-900 font-semibold mt-0.5">เพศหญิง</div>
+              <div id="stat-gender-female-pct" class="text-[10px] text-slate-400">0%</div>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="w-full bg-slate-100 rounded-full h-2 flex overflow-hidden">
+            <div id="bar-gender-male" class="bg-sky-500 h-2 transition-all duration-500" style="width: 50%"></div>
+            <div id="bar-gender-female" class="bg-pink-500 h-2 transition-all duration-500" style="width: 50%"></div>
+          </div>
+        </div>
+
+        <!-- 2. แยกตามช่วงอายุ (Age Groups) -->
+        <div class="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h4 class="font-bold text-xs sm:text-sm text-slate-800 flex items-center space-x-1.5">
+              <i class="fa-solid fa-users-line text-emerald-600"></i>
+              <span>จำแนกตามกลุ่มช่วงอายุ</span>
+            </h4>
+            <span class="text-[11px] text-slate-400">ปี</span>
+          </div>
+
+          <div class="space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-600 flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-cyan-400"></span> <span>วัยเด็ก/เยาวชน (&lt; 18 ปี)</span></span>
+              <span id="stat-age-child" class="font-bold text-slate-800">0 ราย</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-600 flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-blue-500"></span> <span>วัยทำงาน (18 - 59 ปี)</span></span>
+              <span id="stat-age-working" class="font-bold text-slate-800">0 ราย</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-600 flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span> <span>ผู้สูงอายุ (60 - 79 ปี)</span></span>
+              <span id="stat-age-elderly" class="font-bold text-slate-800">0 ราย</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-600 flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-purple-500"></span> <span>ผู้สูงอายุพิเศษ (80+ ปี)</span></span>
+              <span id="stat-age-super-elderly" class="font-bold text-purple-700">0 ราย</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. ความต้องการและอุปกรณ์พยุงชีพจำเป็น (Critical Life Support Needs) -->
+        <div class="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h4 class="font-bold text-xs sm:text-sm text-slate-800 flex items-center space-x-1.5">
+              <i class="fa-solid fa-kit-medical text-rose-600"></i>
+              <span>อุปกรณ์พยุงชีพจำเป็นเร่งด่วน</span>
+            </h4>
+            <span class="text-[10px] bg-rose-100 text-rose-700 px-1.5 rounded font-bold">เฝ้าระวัง</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-rose-50/60 p-2 rounded-lg border border-rose-100 flex flex-col justify-between">
+              <div class="text-[11px] text-rose-900 flex items-center space-x-1">
+                <i class="fa-solid fa-bolt text-amber-500"></i>
+                <span class="font-medium truncate">เครื่องผลิตออกซิเจน</span>
+              </div>
+              <div id="stat-need-oxygen" class="text-base font-bold text-rose-600 mt-1">0 ราย</div>
+              <div class="text-[10px] text-slate-400">ต้องใช้ไฟฟ้าตลอด</div>
+            </div>
+
+            <div class="bg-amber-50/60 p-2 rounded-lg border border-amber-100 flex flex-col justify-between">
+              <div class="text-[11px] text-amber-900 flex items-center space-x-1">
+                <i class="fa-solid fa-bed text-amber-600"></i>
+                <span class="font-medium truncate">เตียงลม/ติดเตียง</span>
+              </div>
+              <div id="stat-need-bed" class="text-base font-bold text-amber-600 mt-1">0 ราย</div>
+              <div class="text-[10px] text-slate-400">แผลกดทับ/พึ่งพิงสูง</div>
+            </div>
+
+            <div class="bg-sky-50/60 p-2 rounded-lg border border-sky-100 flex flex-col justify-between">
+              <div class="text-[11px] text-sky-900 flex items-center space-x-1">
+                <i class="fa-solid fa-wheelchair text-sky-600"></i>
+                <span class="font-medium truncate">รถเข็นวีลแชร์</span>
+              </div>
+              <div id="stat-need-wheelchair" class="text-base font-bold text-sky-600 mt-1">0 ราย</div>
+              <div class="text-[10px] text-slate-400">การเคลื่อนย้าย</div>
+            </div>
+
+            <div class="bg-emerald-50/60 p-2 rounded-lg border border-emerald-100 flex flex-col justify-between">
+              <div class="text-[11px] text-emerald-900 flex items-center space-x-1">
+                <i class="fa-solid fa-box-tissue text-emerald-600"></i>
+                <span class="font-medium truncate">ผ้าอ้อมผู้ใหญ่</span>
+              </div>
+              <div id="stat-need-diaper" class="text-base font-bold text-emerald-600 mt-1">0 ราย</div>
+              <div class="text-[10px] text-slate-400">โครงการ สปสช.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- แผนที่แสดงพิกัดกลุ่มเปราะบางในหน้าภาพรวม (Dashboard GIS Map) -->
+      <div class="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-sm space-y-2">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 class="font-bold text-xs sm:text-sm text-slate-800 flex items-center space-x-2">
+              <i class="fa-solid fa-map-location-dot text-rose-600 text-base"></i>
+              <span>แผนที่พิกัดกลุ่มเปราะบาง (GIS Overview Map)</span>
+            </h3>
+            <p class="text-[11px] text-slate-500">แสดงตำแหน่งบ้านผู้พิการ/ติดเตียงตามระดับความเปราะบาง (คลิกที่หมุดเพื่อดูข้อมูลฉุกเฉิน)</p>
+          </div>
+
+          <div class="flex items-center justify-between sm:justify-end space-x-2 text-[11px]">
+            <div class="flex items-center space-x-2 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+              <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span> <span>วิกฤต/ติดเตียง</span></span>
+              <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span> <span>ติดบ้าน</span></span>
+              <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> <span>ติดสังคม</span></span>
+            </div>
+            <button onclick="app.resetDashboardMapCenter()" title="ปรับมุมมองกลับสู่ศูนย์กลาง ทต.ตันหยงมัส" class="bg-rose-50 text-rose-700 hover:bg-rose-100 p-1.5 rounded-lg border border-rose-200 transition">
+              <i class="fa-solid fa-crosshairs"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="dashboard-gis-map" class="map-container-dashboard border border-slate-200 shadow-inner"></div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------- -->
+    <!-- TAB 2: BENEFICIARIES & VISITS (ทะเบียนและการเยี่ยมบ้าน) -->
+    <!-- ---------------------------------------------------- -->
+    <section id="tab-beneficiaries" class="hidden space-y-4">
+      <!-- Action & Filter Bar -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-800 flex items-center space-x-2">
+              <i class="fa-solid fa-address-book text-rose-600"></i>
+              <span>ทะเบียนผู้พิการและกลุ่มเปราะบาง</span>
+            </h2>
+            <p id="ben-scope-hint" class="text-xs text-slate-500">แสดงเฉพาะลูกบ้านในชุมชนของท่าน</p>
+          </div>
+
+          <!-- Action Buttons: Print Report & Add Beneficiary -->
+          <div class="flex items-center space-x-2">
+            <button onclick="app.printReport()" class="touch-btn bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 shadow-sm transition">
+              <i class="fa-solid fa-print text-rose-600"></i>
+              <span>พิมพ์รายงาน A4</span>
+            </button>
+            <button onclick="app.openAddBeneficiaryModal()" class="touch-btn bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 shadow-sm transition">
+              <i class="fa-solid fa-user-plus"></i>
+              <span>ลงทะเบียนรายใหม่</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filters Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-2 pt-2 border-t border-slate-100 text-xs">
+          <!-- Search input -->
+          <div class="relative sm:col-span-2">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400"></i>
+            <input type="text" id="input-search-ben" oninput="app.handleSearchBeneficiary()" placeholder="ค้นหา ชื่อ-สกุล, เลข ปชช., ที่อยู่, อาการ..." class="w-full bg-slate-50 border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-xs focus:ring-2 focus:ring-rose-500">
+          </div>
+
+          <!-- Triage color filter -->
+          <div>
+            <select id="select-triage-filter" onchange="app.handleSearchBeneficiary()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:ring-2 focus:ring-rose-500">
+              <option value="all">-- ทุกระดับความเปราะบาง --</option>
+              <option value="red">🔴 สีแดง (วิกฤต/ติดเตียง)</option>
+              <option value="yellow">🟡 สีเหลือง (ติดบ้าน/พึ่งพิงปานกลาง)</option>
+              <option value="green">🟢 สีเขียว (ติดสังคม)</option>
+            </select>
+          </div>
+
+          <!-- Community filter (Enabled only for Officer/Executive) -->
+          <div id="filter-community-box">
+            <select id="select-ben-community" onchange="app.handleSearchBeneficiary()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:ring-2 focus:ring-rose-500">
+              <option value="">-- ทุกชุมชน --</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Beneficiaries Card Grid -->
+      <div id="beneficiaries-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <!-- Rendered by JavaScript -->
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------- -->
+    <!-- TAB 3: WELFARE & REQUESTS (สวัสดิการและการเงิน) -->
+    <!-- ---------------------------------------------------- -->
+    <section id="tab-welfare" class="hidden space-y-4">
+      <!-- Header & Request submission -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-bold text-slate-800 flex items-center space-x-2">
+            <i class="fa-solid fa-gift text-rose-600"></i>
+            <span>สวัสดิการ กายอุปกรณ์ และคำร้องขอความช่วยเหลือ</span>
+          </h2>
+          <p class="text-xs text-slate-500">ผ้าอ้อมผู้ใหญ่ (สปสช.), รถเข็นวีลแชร์, เตียงผู้ป่วย, เงินสงเคราะห์, ถุงยังชีพ</p>
+        </div>
+
+        <button onclick="app.openNewWelfareModal()" class="touch-btn bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 shadow-sm transition">
+          <i class="fa-solid fa-paper-plane"></i>
+          <span>ส่งคำร้องขอสวัสดิการแทนลูกบ้าน</span>
+        </button>
+      </div>
+
+      <!-- Filter tabs -->
+      <div class="flex space-x-2 border-b border-slate-200 pb-2 text-xs font-medium">
+        <button onclick="app.filterWelfareStatus('all')" class="welfare-status-btn active-welfare-btn px-3 py-1.5 rounded-lg bg-rose-100 text-rose-800" data-welfare-status="all">ทั้งหมด</button>
+        <button onclick="app.filterWelfareStatus('requested')" class="welfare-status-btn px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200" data-welfare-status="requested">รอตรวจสอบ / อนุมัติ</button>
+        <button onclick="app.filterWelfareStatus('approved')" class="welfare-status-btn px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200" data-welfare-status="approved">อนุมัติแล้ว / รอส่งมอบ</button>
+        <button onclick="app.filterWelfareStatus('delivered')" class="welfare-status-btn px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200" data-welfare-status="delivered">ส่งมอบเรียบร้อย</button>
+      </div>
+
+      <!-- Welfare Cards List -->
+      <div id="welfare-list" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Rendered by JavaScript -->
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------- -->
+    <!-- TAB 4: DISASTER & EMS (การแพทย์ฉุกเฉินและภัยพิบัติ) -->
+    <!-- ---------------------------------------------------- -->
+    <section id="tab-disaster" class="hidden space-y-4">
+      <!-- Emergency Hotlines Strip -->
+      <div class="bg-gradient-to-r from-red-600 to-rose-700 text-white p-4 rounded-xl shadow-md">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-truck-medical text-2xl"></i>
+            <div>
+              <h2 class="font-bold text-sm md:text-base">ศูนย์บริการการแพทย์ฉุกเฉินและสาธารณภัย เทศบาลตำบลตันหยงมัส</h2>
+              <p class="text-xs text-rose-100">สายด่วนพร้อมช่วยเหลือกลุ่มเปราะบางตลอด 24 ชั่วโมง</p>
+            </div>
+          </div>
+          <span class="bg-white/20 text-xs px-2.5 py-1 rounded-full border border-white/30 hidden sm:inline-block">อ.ระแงะ จ.นราธิวาส</span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/20 text-xs">
+          <a href="tel:1669" class="bg-white text-red-600 font-bold p-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-rose-50 shadow">
+            <i class="fa-solid fa-phone"></i>
+            <span>สายด่วน 1669</span>
+          </a>
+          <a href="tel:073671355" class="bg-red-800/80 hover:bg-red-900 text-white p-2.5 rounded-lg flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-fire-extinguisher"></i>
+            <span>กู้ชีพ ทต.ตันหยงมัส</span>
+          </a>
+          <a href="tel:073671046" class="bg-red-800/80 hover:bg-red-900 text-white p-2.5 rounded-lg flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-hospital"></i>
+            <span>รพ.ระแงะ (ฉุกเฉิน)</span>
+          </a>
+          <a href="tel:073671191" class="bg-red-800/80 hover:bg-red-900 text-white p-2.5 rounded-lg flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-shield"></i>
+            <span>สภ.ระแงะ</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Leaflet GIS Map -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 class="font-bold text-xs sm:text-sm text-slate-800 flex items-center space-x-2">
+              <i class="fa-solid fa-map-marked-alt text-rose-600 text-base"></i>
+              <span>แผนที่พิกัดบ้านกลุ่มเปราะบาง 7 ชุมชน (Vulnerability Map)</span>
+            </h3>
+            <p class="text-[11px] text-slate-500">คลิกที่หมุดบนแผนที่เพื่อดูข้อมูลฉุกเฉิน ยาที่แพ้ หรือกดคัดลอกพิกัดส่งกู้ภัย</p>
+          </div>
+
+          <!-- Map Legend & Control -->
+          <div class="flex items-center justify-between sm:justify-end space-x-2 text-[11px]">
+            <div class="flex items-center space-x-2 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+              <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span> <span>วิกฤต/ติดเตียง</span></span>
+              <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span> <span>ติดบ้าน</span></span>
+              <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> <span>ติดสังคม</span></span>
+            </div>
+            <button onclick="app.resetDisasterMapCenter()" title="ปรับมุมมองกลับสู่ศูนย์กลาง ทต.ตันหยงมัส" class="bg-rose-50 text-rose-700 hover:bg-rose-100 p-1.5 rounded-lg border border-rose-200 transition">
+              <i class="fa-solid fa-crosshairs"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="gis-map" class="map-container map-container-disaster border border-slate-200 shadow-inner"></div>
+      </div>
+
+      <!-- Evacuation & Disaster Checklist System -->
+      <div class="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        <!-- Header & Explainer Toggle -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 class="font-bold text-xs sm:text-sm text-slate-800 flex items-center space-x-1.5">
+                <i class="fa-solid fa-clipboard-check text-rose-600"></i>
+                <span>ระบบเช็คชื่อและสถานะการอพยพช่วงเกิดภัยพิบัติ</span>
+              </h3>
+              <span class="text-[10px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full font-bold">Real-time Check</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-0.5">ติดตามสถานะความปลอดภัยและการอพยพกลุ่มติดเตียง/กลุ่มเปราะบาง</p>
+          </div>
+
+          <button onclick="app.toggleDisasterGuide()" class="text-[11px] text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg border border-rose-200 flex items-center space-x-1.5 w-fit transition shadow-sm font-medium">
+            <i class="fa-solid fa-circle-question text-rose-600"></i>
+            <span>ระบบนี้ทำงานอย่างไร? (คลิกดูคำแนะนำ)</span>
+            <i id="disaster-guide-icon" class="fa-solid fa-chevron-down text-[10px] ml-1 transition-transform"></i>
+          </button>
+        </div>
+
+        <!-- Explainer Box (กล่องอธิบายที่มาของรายชื่อและการทำงาน - ซ่อนไว้เสมอ แสดงเมื่อคลิกเท่านั้น) -->
+        <div id="disaster-guide-box" class="hidden bg-gradient-to-r from-rose-50 to-pink-50 p-3.5 rounded-xl border border-rose-200 text-xs text-rose-950 space-y-2 transition-all shadow-sm">
+          <div class="font-bold text-rose-900 flex items-center space-x-1.5">
+            <i class="fa-solid fa-circle-info text-rose-600"></i>
+            <span>💡 ที่มาของรายชื่อและขั้นตอนการทำงานของระบบเช็คชื่อ:</span>
+          </div>
+          <ul class="list-disc list-inside space-y-1 text-[11.5px] text-slate-700 pl-1">
+            <li><strong>ใครมีรายชื่ออยู่ในระบบนี้?</strong>: รายชื่อดึงมาจาก <u>ทะเบียนผู้พิการและกลุ่มเปราะบาง</u> ของชุมชนที่ท่านดูแล โดยระบบจะเรียงลำดับ <strong>🔴 กลุ่มสีแดง (ติดเตียง / ใช้เครื่องออกซิเจน / พึ่งพิง 100%)</strong> ขึ้นมาเป็นลำดับที่ 1 เสมอ ตามด้วย 🟡 กลุ่มสีเหลือง (ติดบ้าน/ผู้สูงอายุ) เพื่อให้อพยพได้ทันท่วงที</li>
+            <li><strong>คณะกรรมการชุมชนต้องทำอย่างไร?</strong>: เมื่อเกิดเหตุน้ำท่วมหรือมีประกาศเตือนภัย ให้โทรศัพท์ติดต่อหรือเดินตรวจลูกบ้านตามรายชื่อ แล้วกดปุ่มอัปเดตสถานะ (🏠 ปลอดภัย / ⚠️ ขอความช่วยเหลือ / ✅ อพยพแล้ว)</li>
+            <li><strong>การแจ้งเตือน Real-time</strong>: หากลูกบ้านท่านใดต้องการความช่วยเหลือ (เช่น น้ำเริ่มเข้าบ้าน, ยาหมด, ต้องใช้เรือ) เมื่อกด <strong>"⚠️ ขอความช่วยเหลือ"</strong> ข้อมูลจะถูกส่งขึ้น <u>แบนเนอร์สีแดงด้านบนสุด และหน้าจอศูนย์บัญชาการของผู้บริหาร</u> ทันทีพร้อมพิกัดนำทาง เพื่อส่งเรือ/ทีมกู้ชีพเข้าช่วยเหลือได้ตรงจุด</li>
+          </ul>
+        </div>
+
+        <!-- Real-time Counters & Filter Bar -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          <button onclick="app.filterDisasterEvac('all')" class="disaster-evac-pill active-evac-pill bg-slate-100 hover:bg-slate-200 text-slate-800 p-2 rounded-lg text-left border border-slate-300 transition" data-evac-filter="all">
+            <span class="text-[10px] text-slate-500 block">ทั้งหมดในชุมชน</span>
+            <span id="evac-count-total" class="font-bold text-sm">0 ราย</span>
+          </button>
+          <button onclick="app.filterDisasterEvac('need_help')" class="disaster-evac-pill bg-red-50 hover:bg-red-100 text-red-900 p-2 rounded-lg text-left border border-red-300 transition" data-evac-filter="need_help">
+            <span class="text-[10px] text-red-700 font-semibold block">⚠️ ขอความช่วยเหลือ/เรือ</span>
+            <span id="evac-count-needhelp" class="font-bold text-sm text-red-600">0 ราย</span>
+          </button>
+          <button onclick="app.filterDisasterEvac('safe_at_home')" class="disaster-evac-pill bg-slate-50 hover:bg-slate-100 text-slate-700 p-2 rounded-lg text-left border border-slate-200 transition" data-evac-filter="safe_at_home">
+            <span class="text-[10px] text-slate-500 block">🏠 ปลอดภัยอยู่ที่บ้าน</span>
+            <span id="evac-count-safe" class="font-bold text-sm text-slate-700">0 ราย</span>
+          </button>
+          <button onclick="app.filterDisasterEvac('evacuated')" class="disaster-evac-pill bg-emerald-50 hover:bg-emerald-100 text-emerald-900 p-2 rounded-lg text-left border border-emerald-300 transition" data-evac-filter="evacuated">
+            <span class="text-[10px] text-emerald-700 block">✅ อพยพถึงศูนย์แล้ว</span>
+            <span id="evac-count-evacuated" class="font-bold text-sm text-emerald-700">0 ราย</span>
+          </button>
+        </div>
+
+        <!-- View 1: Mobile-Friendly Cards (แสดงบนมือถือ - เรียบร้อย ไม่ล้นจอ) -->
+        <div id="mobile-disaster-checklist-cards" class="md:hidden space-y-2.5 pt-1">
+          <!-- Populated by JavaScript for mobile screens -->
+        </div>
+
+        <!-- View 2: Desktop Table (แสดงบนจอคอมพิวเตอร์/แท็บเล็ต) -->
+        <div class="hidden md:block overflow-x-auto pt-1">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-slate-50 text-slate-600 font-medium border-y border-slate-200">
+              <tr>
+                <th class="py-2.5 px-3">ชื่อ-สกุล / ที่อยู่</th>
+                <th class="py-2.5 px-2">ชุมชน</th>
+                <th class="py-2.5 px-2 text-center">ระดับ Triage</th>
+                <th class="py-2.5 px-2">สถานะปัจจุบัน</th>
+                <th class="py-2.5 px-2">ความช่วยเหลือที่ต้องการ</th>
+                <th class="py-2.5 px-2 text-center">อัปเดตสถานะ</th>
+              </tr>
+            </thead>
+            <tbody id="table-disaster-checklist" class="divide-y divide-slate-100">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= BOTTOM NAVIGATION (MOBILE ONLY) ================= -->
+  <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 flex justify-around items-center py-2 z-40 shadow-lg text-[10px] mobile-bottom-nav">
+    <button onclick="app.switchTab('dashboard')" class="mobile-tab-btn flex flex-col items-center text-rose-600 active-mobile-tab py-1 px-3" data-mobile-tab="dashboard">
+      <i class="fa-solid fa-chart-pie text-base"></i>
+      <span class="mt-0.5 font-medium">ภาพรวม</span>
+    </button>
+    <button onclick="app.switchTab('beneficiaries')" class="mobile-tab-btn flex flex-col items-center text-slate-400 py-1 px-3" data-mobile-tab="beneficiaries">
+      <i class="fa-solid fa-id-card text-base"></i>
+      <span class="mt-0.5 font-medium">ทะเบียน</span>
+    </button>
+    <button onclick="app.switchTab('welfare')" class="mobile-tab-btn flex flex-col items-center text-slate-400 py-1 px-3" data-mobile-tab="welfare">
+      <i class="fa-solid fa-gift text-base"></i>
+      <span class="mt-0.5 font-medium">สวัสดิการ</span>
+    </button>
+    <button onclick="app.switchTab('disaster')" class="mobile-tab-btn flex flex-col items-center text-slate-400 py-1 px-3" data-mobile-tab="disaster">
+      <i class="fa-solid fa-map-location-dot text-base"></i>
+      <span class="mt-0.5 font-medium">EMS/ภัย</span>
+    </button>
+  </div>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- 1. LOGIN MODAL -->
+  <div id="modal-login" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="text-center space-y-1">
+        <div class="w-14 h-14 bg-rose-100 text-rose-700 rounded-2xl mx-auto flex items-center justify-center text-2xl shadow-inner">
+          <i class="fa-solid fa-hand-holding-heart"></i>
+        </div>
+        <h2 class="text-xl font-bold text-slate-800">เข้าสู่ระบบ TMCare</h2>
+        <p class="text-xs text-slate-500">เทศบาลตำบลตันหยงมัส อ.ระแงะ จ.นราธิวาส</p>
+      </div>
+
+      <!-- Login Tabs: Committee vs Officer/Executive -->
+      <div class="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+        <button id="tab-btn-login-com" onclick="app.switchLoginTab('committee')" class="py-2 rounded-lg bg-white text-rose-700 shadow-sm transition">
+          <i class="fa-solid fa-users mr-1"></i> คณะกรรมการชุมชน
+        </button>
+        <button id="tab-btn-login-officer" onclick="app.switchLoginTab('officer')" class="py-2 rounded-lg text-slate-500 hover:text-slate-800 transition">
+          <i class="fa-solid fa-building mr-1"></i> เทศบาล / ผู้บริหาร
+        </button>
+      </div>
+
+      <!-- Form: Committee Login -->
+      <form id="form-login-committee" onsubmit="app.handleLoginCommittee(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-700 mb-1">เลือกชุมชนที่ท่านรับผิดชอบ (7 ชุมชน):</label>
+          <select id="login-com-select" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-rose-500">
+            <option value="">-- กรุณาเลือกชุมชน --</option>
+            <option value="COM-01">1. ชุมชนตลาดกลางผลไม้ (PIN เริ่มต้น: 111111)</option>
+            <option value="COM-02">2. ชุมชนโรงเรียนแหลมทองวิทยา (PIN เริ่มต้น: 222222)</option>
+            <option value="COM-03">3. ชุมชนโรงเรียนเจริญศึกษา (PIN เริ่มต้น: 333333)</option>
+            <option value="COM-04">4. ชุมชนวงเวียนลองกอง (PIN เริ่มต้น: 444444)</option>
+            <option value="COM-05">5. ชุมชนโรงภาพยนต์ (PIN เริ่มต้น: 555555)</option>
+            <option value="COM-06">6. ชุมชนสุขาภิบาล (PIN เริ่มต้น: 666666)</option>
+            <option value="COM-07">7. ชุมชนดารุสสลาม (PIN เริ่มต้น: 777777)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-700 mb-1">รหัส PIN 6 หลัก:</label>
+          <input type="password" id="login-com-pin" maxlength="6" inputmode="numeric" placeholder="กรอกรหัส 6 หลัก" required class="w-full text-center tracking-widest text-lg font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-rose-500">
+        </div>
+
+        <button type="submit" class="touch-btn w-full bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-md transition">
+          เข้าสู่ระบบ (ดูเฉพาะชุมชนของท่าน)
+        </button>
+      </form>
+
+      <!-- Form: Officer/Executive Login -->
+      <form id="form-login-officer" onsubmit="app.handleLoginOfficer(event)" class="space-y-3 hidden">
+        <div>
+          <label class="block text-xs font-medium text-slate-700 mb-1">ประเภทบัญชีผู้ใช้:</label>
+          <select id="login-officer-role" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-rose-500">
+            <option value="officer">เจ้าหน้าที่กองสวัสดิการสังคม (Super Admin) - PIN: 888888</option>
+            <option value="executive">ผู้บริหารเทศบาล (นายก/รองนายก/ปลัด) - PIN: 999999</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-700 mb-1">รหัส PIN 6 หลัก:</label>
+          <input type="password" id="login-officer-pin" maxlength="6" inputmode="numeric" placeholder="กรอกรหัส PIN" required class="w-full text-center tracking-widest text-lg font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-rose-500">
+        </div>
+
+        <button type="submit" class="touch-btn w-full bg-rose-800 hover:bg-rose-900 text-white rounded-xl text-xs font-semibold shadow-md transition">
+          เข้าสู่ระบบ (ดูภาพรวมทั้ง 7 ชุมชน)
+        </button>
+      </form>
+
+      <div class="text-center pt-2">
+        <p class="text-[11px] text-slate-400">สำหรับทดสอบระบบ สามารถใช้ PIN ที่แสดงในวงเล็บได้ทันที</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. ADD/EDIT BENEFICIARY MODAL (พร้อมเครื่องคำนวณคะแนน ADL อัตโนมัติ) -->
+  <div id="modal-beneficiary" onclick="if(event.target === this) app.closeModal('modal-beneficiary')" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl my-8 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 id="modal-ben-title" class="font-bold text-base text-slate-800">ลงทะเบียนผู้พิการ/กลุ่มเปราะบางรายใหม่</h3>
+        <button onclick="app.closeModal('modal-beneficiary')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="form-beneficiary" onsubmit="app.handleSaveBeneficiary(event)" class="space-y-4 text-xs">
+        <input type="hidden" id="form-ben-id">
+
+        <!-- Community Selector (Readonly for Committee) -->
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">ชุมชนที่สังกัด:</label>
+          <select id="form-ben-community" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-rose-500">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <!-- Name & CID -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">คำนำหน้า</label>
+            <input type="text" id="form-ben-prefix" placeholder="นาย/นาง/น.ส." required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+          </div>
+          <div class="sm:col-span-1">
+            <label class="block font-medium text-slate-600 mb-1">ชื่อ</label>
+            <input type="text" id="form-ben-firstname" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+          </div>
+          <div class="sm:col-span-1">
+            <label class="block font-medium text-slate-600 mb-1">นามสกุล</label>
+            <input type="text" id="form-ben-lastname" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">เลข ปชช.</label>
+            <input type="text" id="form-ben-cid" placeholder="1-9602-xxxxx-xx-x" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+          </div>
+        </div>
+
+        <!-- Phone, Address & GPS -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">เบอร์โทรติดต่อ</label>
+            <input type="tel" id="form-ben-phone" placeholder="08x-xxx-xxxx" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block font-medium text-slate-600 mb-1">ที่อยู่ / จุดสังเกต</label>
+            <input type="text" id="form-ben-address" required placeholder="เลขที่ ถนน ซอย หรือใกล้เคียง..." class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+          <div>
+            <label class="block text-[11px] text-slate-500 mb-1">พิกัด Latitude</label>
+            <input type="number" step="any" id="form-ben-lat" placeholder="6.27xxxx" class="w-full bg-white border border-slate-300 rounded p-1.5 text-xs">
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 mb-1">พิกัด Longitude</label>
+            <div class="flex space-x-1">
+              <input type="number" step="any" id="form-ben-lng" placeholder="101.73xxxx" class="w-full bg-white border border-slate-300 rounded p-1.5 text-xs">
+              <button type="button" onclick="app.getCurrentGPS()" title="จับพิกัดปัจจุบันจาก GPS มือถือ" class="bg-rose-600 text-white px-2.5 rounded hover:bg-rose-700">
+                <i class="fa-solid fa-location-crosshairs"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vulnerability & ADL Assessment Box -->
+        <div class="bg-rose-50/70 p-3.5 rounded-xl border border-rose-100 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="font-bold text-rose-900">การประเมินคะแนน ADL และระดับความเปราะบาง:</label>
+            <span id="form-adl-badge" class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">🟡 สีเหลือง (ติดบ้าน)</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label class="block text-slate-600 mb-1">คะแนน ADL (0-20):</label>
+              <input type="number" id="form-ben-adl" min="0" max="20" value="8" oninput="app.updateAdlPreview(this.value)" class="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-base">
+              <span class="text-[10px] text-slate-400 block mt-0.5">0-4: 🔴 สีแดง (ติดเตียง) | 5-11: 🟡 สีเหลือง | 12-20: 🟢 สีเขียว</span>
+            </div>
+            <div>
+              <label class="block text-slate-600 mb-1">ประเภทความเปราะบาง/ความพิการ:</label>
+              <input type="text" id="form-ben-vulnerability" placeholder="เช่น ผู้พิการทางการเคลื่อนไหว, ผู้สูงอายุติดเตียง" required class="w-full bg-white border border-slate-300 rounded-lg p-2">
+            </div>
+          </div>
+        </div>
+
+        <!-- Medical & Emergency Info -->
+        <div class="space-y-2">
+          <h4 class="font-bold text-slate-700">ข้อมูลการแพทย์และอุปกรณ์พยุงชีพ:</h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label class="block text-slate-600 mb-1">โรคประจำตัว</label>
+              <input type="text" id="form-ben-chronic" placeholder="เช่น สโตรก, เบาหวาน, ความดัน" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+            </div>
+            <div>
+              <label class="block text-slate-600 mb-1">ประวัติแพ้ยา</label>
+              <input type="text" id="form-ben-allergies" placeholder="เช่น เพนิซิลลิน หรือ ระบุ 'ไม่มี'" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+            </div>
+            <div>
+              <label class="block text-slate-600 mb-1">อุปกรณ์พยุงชีพ / กายอุปกรณ์</label>
+              <input type="text" id="form-ben-devices" placeholder="เช่น เตียงลม, เครื่องผลิตออกซิเจน, วีลแชร์" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+            </div>
+            <div>
+              <label class="block text-slate-600 mb-1">โรงพยาบาลที่รักษาประจำ</label>
+              <input type="text" id="form-ben-hospital" value="รพ.ระแงะ" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+            </div>
+          </div>
+        </div>
+
+        <!-- Caregiver Contact -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <label class="block text-slate-600 mb-1">ชื่อผู้ดูแลหลัก (Caregiver)</label>
+            <input type="text" id="form-ben-caregiver-name" placeholder="ชื่อ-สกุล และความสัมพันธ์" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+          </div>
+          <div>
+            <label class="block text-slate-600 mb-1">เบอร์โทรผู้ดูแล</label>
+            <input type="tel" id="form-ben-caregiver-phone" placeholder="08x-xxx-xxxx" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="app.closeModal('modal-beneficiary')" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100">ยกเลิก</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow">บันทึกข้อมูล</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. VISIT LOG MODAL (บันทึกการเยี่ยมบ้าน) -->
+  <div id="modal-visit" onclick="if(event.target === this) app.closeModal('modal-visit')" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl my-8 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="font-bold text-base text-slate-800">บันทึกการเยี่ยมบ้าน</h3>
+          <p id="modal-visit-patient-name" class="text-xs text-sky-700 font-semibold">ชื่อลูกบ้าน</p>
+        </div>
+        <button onclick="app.closeModal('modal-visit')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="form-visit" onsubmit="app.handleSaveVisit(event)" class="space-y-3 text-xs">
+        <input type="hidden" id="visit-ben-id">
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">วันที่ออกเยี่ยม:</label>
+          <input type="date" id="visit-date" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">สัญญาณชีพ / สภาพอาการทั่วไป:</label>
+          <input type="text" id="visit-vitals" placeholder="เช่น BP 125/80, ปกติดี, อ่อนเพลีย, แผลกดทับ" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">สภาพความเป็นอยู่และสิ่งแวดล้อม:</label>
+          <textarea id="visit-condition" rows="2" placeholder="เช่น อยู่คนเดียว, บุตรดูแลดี, อาหารน้ำดื่มเพียงพอ" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2"></textarea>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">ความช่วยเหลือที่ต้องการเร่งด่วน / ข้อสังเกต:</label>
+          <textarea id="visit-notes" rows="2" placeholder="เช่น ขอรับผ้าอ้อมผู้ใหญ่เพิ่ม, ต้องส่งต่อพยาบาล" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2"></textarea>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">แนบภาพถ่ายการเยี่ยมบ้าน:</label>
+          <input type="file" id="visit-photo-file" accept="image/*" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100">
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="app.closeModal('modal-visit')" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100">ยกเลิก</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold shadow">บันทึกการเยี่ยม</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. NEW WELFARE REQUEST MODAL -->
+  <div id="modal-welfare" onclick="if(event.target === this) app.closeModal('modal-welfare')" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-bold text-base text-slate-800">ยื่นคำร้องขอสวัสดิการ / กายอุปกรณ์</h3>
+        <button onclick="app.closeModal('modal-welfare')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="form-welfare" onsubmit="app.handleSaveWelfare(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">เลือกลูกบ้านที่ต้องการขอรับสิทธิ:</label>
+          <select id="welfare-ben-select" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">ประเภทสวัสดิการที่ขอรับ:</label>
+          <select id="welfare-type-select" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5">
+            <option value="diaper">ผ้าอ้อมผู้ใหญ่ / แผ่นรองซับ (สปสช.)</option>
+            <option value="equipment">กายอุปกรณ์ (รถเข็นนั่งวีลแชร์ / ไม้เท้า / เตียงลม)</option>
+            <option value="relief_bag">ถุงยังชีพ / ข้าวสารอาหารแห้งฉุกเฉิน</option>
+            <option value="home_repair">ปรับปรุงสภาพแวดล้อมที่อยู่อาศัย / ทางลาด</option>
+            <option value="allowance">เงินสงเคราะห์ผู้มีรายได้น้อย / กองทุนฟื้นฟูฯ</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">รายละเอียดสิ่งของ / จำนวน:</label>
+          <input type="text" id="welfare-item-detail" placeholder="เช่น ผ้าอ้อมผู้ใหญ่ ไซส์ L จำนวน 3 ลัง" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">เหตุผลความจำเป็น:</label>
+          <textarea id="welfare-notes" rows="2" placeholder="ระบุเหตุผลความเดือดร้อน" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2"></textarea>
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="app.closeModal('modal-welfare')" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100">ยกเลิก</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow">ส่งคำร้อง</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. EMERGENCY MEDICAL CARD MODAL -->
+  <div id="modal-ems-card" onclick="if(event.target === this) app.closeModal('modal-ems-card')" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="bg-red-600 -mx-6 -mt-6 p-4 rounded-t-2xl text-white flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-notes-medical text-2xl animate-pulse"></i>
+          <div>
+            <h3 class="font-bold text-sm">บัตรข้อมูลการแพทย์ฉุกเฉิน (EMS Card)</h3>
+            <p class="text-xs text-red-100">เทศบาลตำบลตันหยงมัส</p>
+          </div>
+        </div>
+        <button onclick="app.closeModal('modal-ems-card')" class="text-white hover:text-red-200">
+          <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
+      </div>
+
+      <div id="ems-card-content" class="space-y-3 text-xs">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+        <button id="btn-copy-ems-line" class="touch-btn bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1 shadow">
+          <i class="fa-brands fa-line text-base"></i>
+          <span>คัดลอกข้อมูลส่ง LINE กู้ภัย</span>
+        </button>
+        <button onclick="app.closeModal('modal-ems-card')" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. SETTINGS & DATABASE MODAL -->
+  <div id="modal-settings" onclick="if(event.target === this) app.closeModal('modal-settings')" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-bold text-base text-slate-800">ตั้งค่าการเชื่อมต่อฐานข้อมูล</h3>
+        <button onclick="app.closeModal('modal-settings')" class="text-slate-400 hover:text-slate-600">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="form-settings" onsubmit="app.handleSaveSettings(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">ผู้ให้บริการฐานข้อมูล (Data Provider):</label>
+          <select id="settings-provider" onchange="app.toggleSettingsFields(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5">
+            <option value="GAS">1. Google Apps Script + Google Sheets (ฐานข้อมูลหลัก ออนไลน์)</option>
+            <option value="MOCK">2. โหมดออฟไลน์ / ทดสอบในเครื่อง (LocalStorage)</option>
+            <option value="SUPABASE">3. Supabase PostgreSQL (ระยะที่ 2 - อนาคต)</option>
+          </select>
+        </div>
+
+        <div id="settings-gas-box" class="space-y-2">
+          <label class="block font-medium text-slate-700">Google Apps Script Web App URL:</label>
+          <div class="flex gap-2">
+            <input type="url" id="settings-gas-url" placeholder="https://script.google.com/macros/s/xxxx/exec" class="flex-1 bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs">
+            <button type="button" onclick="app.testGasConnection()" id="btn-test-gas" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-xs whitespace-nowrap shadow flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-plug"></i> ทดสอบเชื่อมต่อ
+            </button>
+          </div>
+          <div id="gas-test-result" class="hidden text-xs p-2.5 rounded-lg border"></div>
+          <span class="text-[11px] text-slate-400 block">ดูโค้ดและวิธีติดตั้งในไฟล์ <code>backend/gas/Code.gs</code></span>
+        </div>
+
+        <div id="settings-supabase-box" class="space-y-2 hidden">
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">Supabase Project URL:</label>
+            <input type="url" id="settings-supa-url" placeholder="https://xxxx.supabase.co" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">Supabase Anon Key:</label>
+            <input type="password" id="settings-supa-key" placeholder="eyJhbGciOi..." class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+          <button type="button" onclick="app.clearCacheAndSync()" class="text-xs text-rose-600 hover:text-rose-800 underline flex items-center gap-1">
+            <i class="fa-solid fa-arrows-rotate"></i> ล้างแคชและซิงค์ข้อมูลใหม่
+          </button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow">
+            บันทึกการตั้งค่า
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= PRINT REPORT CONTAINER (A4 LANDSCAPE) ================= -->
+  <div id="print-report-container" class="hidden">
+    <!-- Populated dynamically by app.preparePrintData() -->
+  </div>
+
+  <!-- ================= SCRIPTS ================= -->
+  <script src="js/config.js"></script>
+  <script src="js/services/gasDriver.js"></script>
+  <script src="js/services/supabaseDriver.js"></script>
+  <script src="js/services/apiService.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
+
