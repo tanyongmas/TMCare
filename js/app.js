@@ -1554,9 +1554,7 @@ ${mapLink}`;
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
               <!-- ด้านซ้าย: ตราและหน่วยงาน -->
               <div style="display: flex; align-items: center; gap: 8px;">
-                <div style="width: 36px; height: 36px; background: #e11d48; color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px;">
-                  <i class="fa-solid fa-hand-holding-heart"></i>
-                </div>
+                <img src="assets/logo.png" alt="ตราเทศบาลตำบลตันหยงมัส" style="width: 36px; height: 36px; object-fit: contain;">
                 <div>
                   <div style="font-size: 12pt; font-weight: 700; color: #be123c; line-height: 1.2;">เทศบาลตำบลตันหยงมัส</div>
                   <div style="font-size: 7.5pt; color: #64748b;">อำเภอระแงะ จังหวัดนราธิวาส • กองสวัสดิการสังคม</div>
@@ -1750,12 +1748,15 @@ ${mapLink}`;
           <!-- ส่วนหัวหน้าบัญชีรายชื่อ -->
           <div style="border-bottom: 2px solid #e11d48; padding-bottom: 4px; margin-bottom: 6px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-              <div>
-                <div style="font-size: 12pt; font-weight: 800; color: #0f172a;">
-                  บัญชีรายชื่อผู้พิการและกลุ่มเปราะบาง (จำแนกตามระดับความเร่งด่วน Triage)
-                </div>
-                <div style="font-size: 8pt; color: #475569; margin-top: 1px;">
-                  <strong>เทศบาลตำบลตันหยงมัส อ.ระแงะ จ.นราธิวาส</strong> | <strong>ขอบเขต:</strong> ${scopeLabel}
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <img src="assets/logo.png" alt="ตราเทศบาลตำบลตันหยงมัส" style="width: 32px; height: 32px; object-fit: contain;">
+                <div>
+                  <div style="font-size: 11pt; font-weight: 800; color: #0f172a;">
+                    บัญชีรายชื่อผู้พิการและกลุ่มเปราะบาง (จำแนกตามระดับความเร่งด่วน Triage)
+                  </div>
+                  <div style="font-size: 8pt; color: #475569; margin-top: 1px;">
+                    <strong>เทศบาลตำบลตันหยงมัส อ.ระแงะ จ.นราธิวาส</strong> | <strong>ขอบเขต:</strong> ${scopeLabel}
+                  </div>
                 </div>
               </div>
               <div style="text-align: right; font-size: 7.5pt; color: #475569;">

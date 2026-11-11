@@ -95,6 +95,9 @@
 TMCare/
 ├── index.html                  # หน้าจอหลัก Single Page Application (Mobile-First)
 ├── manifest.json               # สำหรับติดตั้งเป็น Progressive Web App บนมือถือ
+├── assets/                     # โลโก้และ Favicon ประจำเทศบาลตำบลตันหยงมัส
+│   ├── favicon.ico
+│   └── logo.png
 ├── css/
 │   └── styles.css              # Custom styling, Badge 3 สี, แผนที่ Leaflet
 ├── js/
