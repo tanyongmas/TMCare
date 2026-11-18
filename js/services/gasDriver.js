@@ -6,7 +6,12 @@
 
 const gasDriver = {
   getApiUrl() {
-    return (localStorage.getItem('tmcare_gas_url') || '').trim();
+    const saved = localStorage.getItem('tmcare_gas_url');
+    if (saved && saved.trim()) return saved.trim();
+    if (typeof TMCARE_CONFIG !== 'undefined' && TMCARE_CONFIG.GAS_API_URL) {
+      return TMCARE_CONFIG.GAS_API_URL.trim();
+    }
+    return 'https://script.google.com/macros/s/AKfycbz_f3zk6ikMC2fisQixdA1wA9AVDLHfjGeHE_MG7ZNWTRkag-06eeLN8_h-qqCQHPzSHg/exec';
   },
 
   setApiUrl(url) {

@@ -9,21 +9,23 @@ const TMCARE_CONFIG = {
   PROVINCE: "อำเภอระแงะ จังหวัดนราธิวาส",
   VERSION: "1.0.0",
 
-  // Data Mode: 'GAS' | 'MOCK' | 'SUPABASE'
+  // Data Mode: 'GAS' | 'SUPABASE'
   // ค่าเริ่มต้นเป็น 'GAS' เชื่อมต่อ Google Sheets ผ่าน Google Apps Script
-  DATA_PROVIDER: localStorage.getItem('tmcare_provider') || 'GAS',
+  DATA_PROVIDER: (localStorage.getItem('tmcare_provider') && localStorage.getItem('tmcare_provider') !== 'MOCK')
+    ? localStorage.getItem('tmcare_provider')
+    : 'GAS',
   
-  // URL สำหรับ Google Apps Script Web App (เมื่อ Deploy แล้ว)
-  GAS_API_URL: localStorage.getItem('tmcare_gas_url') || '',
+  // URL สำหรับ Google Apps Script Web App (เชื่อมต่อฐานข้อมูล GAS ของระบบ)
+  GAS_API_URL: localStorage.getItem('tmcare_gas_url') || 'https://script.google.com/macros/s/AKfycbz_f3zk6ikMC2fisQixdA1wA9AVDLHfjGeHE_MG7ZNWTRkag-06eeLN8_h-qqCQHPzSHg/exec',
 
   // Supabase Config (สำหรับอนาคต)
   SUPABASE_URL: localStorage.getItem('tmcare_supabase_url') || '',
   SUPABASE_ANON_KEY: localStorage.getItem('tmcare_supabase_key') || '',
 
-  // พิกัดศูนย์กลางเทศบาลตำบลตันหยงมัส (ใกล้สถานีรถไฟตันหยงมัส / สำนักงานเทศบาล)
+  // พิกัดศูนย์กลางเขตเทศบาลตำบลตันหยงมัส (ใจกลางเมืองตันหยงมัส อ.ระแงะ จ.นราธิวาส)
   MAP_CENTER: {
-    lat: 6.2758,
-    lng: 101.7335,
+    lat: 6.2950,
+    lng: 101.7210,
     zoom: 15
   },
 

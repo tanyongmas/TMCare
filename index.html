@@ -86,7 +86,7 @@
         <!-- Database Provider Pill -->
         <button id="btn-db-status" title="คลิกเพื่อตั้งค่าการเชื่อมต่อฐานข้อมูล" class="text-[11px] bg-rose-900/70 hover:bg-rose-900 text-pink-100 px-2.5 py-1.5 rounded-lg border border-rose-500/30 flex items-center space-x-1">
           <span id="db-indicator-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span id="db-provider-name">MOCK</span>
+          <span id="db-provider-name">Google Sheets</span>
         </button>
 
         <!-- Switch Role / Logout -->
@@ -113,9 +113,30 @@
         <i class="fa-solid fa-cloud-arrow-up text-rose-600 text-sm"></i>
         <span><strong>พร้อมเชื่อมต่อ Google Sheets:</strong> ยังไม่ได้ระบุ Google Apps Script Web App URL กรุณาตั้งค่าเพื่อดึงข้อมูลจริง</span>
       </div>
-      <button onclick="app.openModal('modal-settings')" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-md font-medium text-xs whitespace-nowrap shadow-sm">
+      <button onclick="app.openSettingsModal()" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-md font-medium text-xs whitespace-nowrap shadow-sm">
         <i class="fa-solid fa-gear"></i> ตั้งค่า Web App URL
       </button>
+    </div>
+  </div>
+
+  <!-- ================= GAS CONNECTION ERROR / RETRY BANNER ================= -->
+  <div id="gas-error-banner" class="hidden bg-rose-50 border-b border-rose-200 px-4 py-2.5 text-xs text-rose-900">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-triangle-exclamation text-rose-600 text-sm"></i>
+        <div>
+          <strong>ไม่สามารถเชื่อมต่อ Google Sheets (GAS):</strong>
+          <span id="gas-error-message">ไม่สามารถดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์ได้</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btn-retry-gas" onclick="app.retryGasConnection()" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-md font-medium text-xs whitespace-nowrap shadow-sm flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-rotate-right"></i> ลองเชื่อมต่อใหม่ (Retry)
+        </button>
+        <button onclick="app.openSettingsModal()" class="px-2.5 py-1.5 bg-white hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-md font-medium text-xs whitespace-nowrap transition">
+          <i class="fa-solid fa-gear"></i> ตั้งค่า
+        </button>
+      </div>
     </div>
   </div>
 
@@ -768,74 +789,77 @@
   <!-- ================= MODALS ================= -->
 
   <!-- 1. LOGIN MODAL -->
-  <div id="modal-login" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-      <div class="text-center space-y-2">
-        <div class="w-16 h-16 bg-white rounded-2xl mx-auto p-1.5 flex items-center justify-center shadow-md border border-rose-100">
+  <div id="modal-login" class="fixed inset-0 bg-rose-950/65 backdrop-blur-md flex items-center justify-center p-4 z-50 bg-gradient-to-br from-pink-900/40 via-rose-900/50 to-pink-950/70">
+    <div class="bg-gradient-to-b from-pink-50/90 via-white to-pink-50/50 rounded-2xl max-w-md w-full p-6 sm:p-7 shadow-2xl shadow-rose-950/30 border border-pink-200 space-y-4">
+      <div class="text-center space-y-1.5">
+        <div class="w-16 h-16 bg-white rounded-2xl mx-auto p-1.5 flex items-center justify-center shadow-lg shadow-rose-500/20 border border-pink-100">
           <img src="assets/logo.png" alt="โลโก้เทศบาลตำบลตันหยงมัส" class="w-full h-full object-contain">
         </div>
-        <h2 class="text-xl font-bold text-slate-800">เข้าสู่ระบบ TMCare</h2>
-        <p class="text-xs text-slate-500">เทศบาลตำบลตันหยงมัส อ.ระแงะ จ.นราธิวาส</p>
+        <h2 class="text-xl sm:text-2xl font-bold text-slate-800">เข้าสู่ระบบ TMCare</h2>
+        <p class="text-xs text-rose-700/80 font-medium">เทศบาลตำบลตันหยงมัส อ.ระแงะ จ.นราธิวาส</p>
       </div>
 
       <!-- Login Tabs: Committee vs Officer/Executive -->
-      <div class="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
-        <button id="tab-btn-login-com" onclick="app.switchLoginTab('committee')" class="py-2 rounded-lg bg-white text-rose-700 shadow-sm transition">
+      <div class="grid grid-cols-2 gap-1.5 bg-pink-100/70 p-1.5 rounded-xl text-xs font-semibold border border-pink-200/60">
+        <button id="tab-btn-login-com" onclick="app.switchLoginTab('committee')" class="py-2.5 rounded-lg bg-white text-rose-700 shadow-sm transition">
           <i class="fa-solid fa-users mr-1"></i> คณะกรรมการชุมชน
         </button>
-        <button id="tab-btn-login-officer" onclick="app.switchLoginTab('officer')" class="py-2 rounded-lg text-slate-500 hover:text-slate-800 transition">
+        <button id="tab-btn-login-officer" onclick="app.switchLoginTab('officer')" class="py-2.5 rounded-lg text-slate-600 hover:text-slate-900 transition">
           <i class="fa-solid fa-building mr-1"></i> เทศบาล / ผู้บริหาร
         </button>
       </div>
 
       <!-- Form: Committee Login -->
-      <form id="form-login-committee" onsubmit="app.handleLoginCommittee(event)" class="space-y-3">
+      <form id="form-login-committee" onsubmit="app.handleLoginCommittee(event)" class="space-y-3.5">
         <div>
           <label class="block text-xs font-medium text-slate-700 mb-1">เลือกชุมชนที่ท่านรับผิดชอบ (7 ชุมชน):</label>
-          <select id="login-com-select" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-rose-500">
+          <select id="login-com-select" required class="w-full bg-white border border-pink-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 shadow-sm">
             <option value="">-- กรุณาเลือกชุมชน --</option>
-            <option value="COM-01">1. ชุมชนตลาดกลางผลไม้ (PIN เริ่มต้น: 111111)</option>
-            <option value="COM-02">2. ชุมชนโรงเรียนแหลมทองวิทยา (PIN เริ่มต้น: 222222)</option>
-            <option value="COM-03">3. ชุมชนโรงเรียนเจริญศึกษา (PIN เริ่มต้น: 333333)</option>
-            <option value="COM-04">4. ชุมชนวงเวียนลองกอง (PIN เริ่มต้น: 444444)</option>
-            <option value="COM-05">5. ชุมชนโรงภาพยนต์ (PIN เริ่มต้น: 555555)</option>
-            <option value="COM-06">6. ชุมชนสุขาภิบาล (PIN เริ่มต้น: 666666)</option>
-            <option value="COM-07">7. ชุมชนดารุสสลาม (PIN เริ่มต้น: 777777)</option>
+            <option value="COM-01">1. ชุมชนตลาดกลางผลไม้</option>
+            <option value="COM-02">2. ชุมชนโรงเรียนแหลมทองวิทยา</option>
+            <option value="COM-03">3. ชุมชนโรงเรียนเจริญศึกษา</option>
+            <option value="COM-04">4. ชุมชนวงเวียนลองกอง</option>
+            <option value="COM-05">5. ชุมชนโรงภาพยนต์</option>
+            <option value="COM-06">6. ชุมชนสุขาภิบาล</option>
+            <option value="COM-07">7. ชุมชนดารุสสลาม</option>
           </select>
         </div>
 
         <div>
           <label class="block text-xs font-medium text-slate-700 mb-1">รหัส PIN 6 หลัก:</label>
-          <input type="password" id="login-com-pin" maxlength="6" inputmode="numeric" placeholder="กรอกรหัส 6 หลัก" required class="w-full text-center tracking-widest text-lg font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-rose-500">
+          <input type="password" id="login-com-pin" maxlength="6" inputmode="numeric" placeholder="กรอกรหัส 6 หลัก" required class="w-full text-center tracking-widest text-lg font-bold bg-white border border-pink-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 shadow-sm">
         </div>
 
-        <button type="submit" class="touch-btn w-full bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-md transition">
+        <button type="submit" id="btn-submit-com-login" class="touch-btn w-full bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white rounded-xl text-xs font-semibold py-3 shadow-md shadow-rose-600/25 transition">
           เข้าสู่ระบบ (ดูเฉพาะชุมชนของท่าน)
         </button>
       </form>
 
       <!-- Form: Officer/Executive Login -->
-      <form id="form-login-officer" onsubmit="app.handleLoginOfficer(event)" class="space-y-3 hidden">
+      <form id="form-login-officer" onsubmit="app.handleLoginOfficer(event)" class="space-y-3.5 hidden">
         <div>
           <label class="block text-xs font-medium text-slate-700 mb-1">ประเภทบัญชีผู้ใช้:</label>
-          <select id="login-officer-role" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-rose-500">
-            <option value="officer">เจ้าหน้าที่กองสวัสดิการสังคม (Super Admin) - PIN: 888888</option>
-            <option value="executive">ผู้บริหารเทศบาล (นายก/รองนายก/ปลัด) - PIN: 999999</option>
+          <select id="login-officer-role" required class="w-full bg-white border border-pink-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 shadow-sm">
+            <option value="officer">เจ้าหน้าที่กองสวัสดิการสังคม (Super Admin)</option>
+            <option value="executive">ผู้บริหารเทศบาล (นายก/รองนายก/ปลัด)</option>
           </select>
         </div>
 
         <div>
           <label class="block text-xs font-medium text-slate-700 mb-1">รหัส PIN 6 หลัก:</label>
-          <input type="password" id="login-officer-pin" maxlength="6" inputmode="numeric" placeholder="กรอกรหัส PIN" required class="w-full text-center tracking-widest text-lg font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-rose-500">
+          <input type="password" id="login-officer-pin" maxlength="6" inputmode="numeric" placeholder="กรอกรหัส PIN" required class="w-full text-center tracking-widest text-lg font-bold bg-white border border-pink-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 shadow-sm">
         </div>
 
-        <button type="submit" class="touch-btn w-full bg-rose-800 hover:bg-rose-900 text-white rounded-xl text-xs font-semibold shadow-md transition">
+        <button type="submit" id="btn-submit-off-login" class="touch-btn w-full bg-gradient-to-r from-rose-800 to-pink-800 hover:from-rose-900 hover:to-pink-900 text-white rounded-xl text-xs font-semibold py-3 shadow-md shadow-rose-800/25 transition">
           เข้าสู่ระบบ (ดูภาพรวมทั้ง 7 ชุมชน)
         </button>
       </form>
 
-      <div class="text-center pt-2">
-        <p class="text-[11px] text-slate-400">สำหรับทดสอบระบบ สามารถใช้ PIN ที่แสดงในวงเล็บได้ทันที</p>
+      <div class="text-center pt-1 border-t border-pink-100">
+        <p class="text-[11px] text-pink-700/70 flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-shield-halved text-rose-500"></i>
+          <span>เข้าสู่ระบบด้วยรหัส PIN 6 หลักที่ได้รับมอบหมาย</span>
+        </p>
       </div>
     </div>
   </div>
@@ -1113,8 +1137,7 @@
           <label class="block font-medium text-slate-700 mb-1">ผู้ให้บริการฐานข้อมูล (Data Provider):</label>
           <select id="settings-provider" onchange="app.toggleSettingsFields(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5">
             <option value="GAS">1. Google Apps Script + Google Sheets (ฐานข้อมูลหลัก ออนไลน์)</option>
-            <option value="MOCK">2. โหมดออฟไลน์ / ทดสอบในเครื่อง (LocalStorage)</option>
-            <option value="SUPABASE">3. Supabase PostgreSQL (ระยะที่ 2 - อนาคต)</option>
+            <option value="SUPABASE">2. Supabase PostgreSQL (ระยะที่ 2 - อนาคต)</option>
           </select>
         </div>
 

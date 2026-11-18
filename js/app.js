@@ -18,17 +18,21 @@ const app = {
   async init() {
     console.log("Initializing TMCare Application...");
     apiService.init();
+    this.setupEventListeners();
+    this.updateProviderStatusUI();
 
     // ตรวจสอบสถานะการเข้าสู่ระบบ
     const user = apiService.getCurrentUser();
     if (!user) {
       this.openModal('modal-login');
+      // ซิงค์ข้อมูลผู้ใช้และตรวจสอบการเชื่อมต่อ GAS ตั้งแต่เปิดเว็บ
+      if (apiService.getProvider() === 'GAS' && gasDriver.getApiUrl()) {
+        apiService.syncFromGas().then(() => this.updateProviderStatusUI());
+      }
     } else {
       this.updateUserUI(user);
       await this.loadCurrentView();
     }
-
-    this.setupEventListeners();
   },
 
   setupEventListeners() {
@@ -73,6 +77,11 @@ const app = {
     // Before Print Hook (Automatic data population for Ctrl+P)
     window.addEventListener('beforeprint', () => {
       this.preparePrintData();
+    });
+
+    // อัปเดตแถบสถานะและแจ้งเตือนการเชื่อมต่อ GAS อัตโนมัติ
+    window.addEventListener('tmcare:gas-status', () => {
+      this.updateProviderStatusUI();
     });
   },
 
@@ -139,6 +148,69 @@ const app = {
     }
   },
 
+  updateProviderStatusUI() {
+    const dbProviderName = document.getElementById('db-provider-name');
+    const dbDot = document.getElementById('db-indicator-dot');
+    const gasBanner = document.getElementById('gas-setup-banner');
+    const gasErrorBanner = document.getElementById('gas-error-banner');
+    const gasErrorMsg = document.getElementById('gas-error-message');
+
+    const p = apiService.getProvider();
+    if (dbProviderName) {
+      dbProviderName.textContent = p === 'GAS' ? 'Google Sheets' : p;
+    }
+
+    if (p === 'GAS') {
+      const hasUrl = !!gasDriver.getApiUrl();
+      if (gasBanner) {
+        gasBanner.classList.toggle('hidden', hasUrl);
+      }
+
+      const isFailed = hasUrl && apiService.isGasConnected === false;
+      if (gasErrorBanner) {
+        gasErrorBanner.classList.toggle('hidden', !isFailed);
+        if (isFailed && gasErrorMsg) {
+          gasErrorMsg.textContent = apiService.gasConnectionError || 'ไม่สามารถดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์ได้';
+        }
+      }
+
+      if (dbDot) {
+        if (!hasUrl) {
+          dbDot.className = "w-2 h-2 rounded-full bg-amber-400 animate-ping";
+        } else if (isFailed) {
+          dbDot.className = "w-2 h-2 rounded-full bg-rose-400 animate-pulse";
+        } else {
+          dbDot.className = "w-2 h-2 rounded-full bg-emerald-400";
+        }
+      }
+    } else {
+      if (gasBanner) gasBanner.classList.add('hidden');
+      if (gasErrorBanner) gasErrorBanner.classList.add('hidden');
+      if (dbDot) dbDot.className = "w-2 h-2 rounded-full bg-emerald-400";
+    }
+  },
+
+  async retryGasConnection() {
+    const btn = document.getElementById('btn-retry-gas');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเชื่อมต่อ...';
+    }
+
+    try {
+      const ok = await apiService.syncFromGas(this.currentCommunityFilter);
+      this.updateProviderStatusUI();
+      if (ok && apiService.getCurrentUser()) {
+        await this.loadCurrentView();
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> ลองเชื่อมต่อใหม่ (Retry)';
+      }
+    }
+  },
+
   updateUserUI(user) {
     if (!user) return;
 
@@ -147,7 +219,6 @@ const app = {
     const comBadge = document.getElementById('user-badge-community');
     const mobileComName = document.getElementById('mobile-community-name');
     const mobileRoleLabel = document.getElementById('mobile-role-label');
-    const dbProviderName = document.getElementById('db-provider-name');
 
     if (roleBadge) {
       if (user.role === 'committee') {
@@ -170,29 +241,7 @@ const app = {
       mobileRoleLabel.textContent = user.role === 'committee' ? 'กรรมการชุมชน' : 'เทศบาล';
     }
 
-    if (dbProviderName) {
-      const p = apiService.getProvider();
-      dbProviderName.textContent = p === 'GAS' ? 'Google Sheets' : (p === 'MOCK' ? 'LocalStorage' : p);
-    }
-
-    const dbDot = document.getElementById('db-indicator-dot');
-    const gasBanner = document.getElementById('gas-setup-banner');
-    if (apiService.getProvider() === 'GAS') {
-      const hasUrl = !!gasDriver.getApiUrl();
-      if (dbDot) {
-        dbDot.className = hasUrl ? "w-2 h-2 rounded-full bg-emerald-400" : "w-2 h-2 rounded-full bg-amber-400 animate-ping";
-      }
-      if (gasBanner) {
-        if (!hasUrl) {
-          gasBanner.classList.remove('hidden');
-        } else {
-          gasBanner.classList.add('hidden');
-        }
-      }
-    } else {
-      if (gasBanner) gasBanner.classList.add('hidden');
-      if (dbDot) dbDot.className = "w-2 h-2 rounded-full bg-slate-400";
-    }
+    this.updateProviderStatusUI();
 
     // ปรับ UI ตามบทบาท (Scoping Controls)
     const comFilterBox = document.getElementById('dashboard-com-filter-box');
@@ -302,7 +351,23 @@ const app = {
   // ----------------------------------------------------
   // 1. DASHBOARD CONTROLLER
   // ----------------------------------------------------
+  showDashboardTableSkeleton() {
+    const tbody = document.getElementById('table-community-breakdown');
+    if (!tbody) return;
+    tbody.innerHTML = Array(5).fill(0).map(() => `
+      <tr class="animate-pulse">
+        <td class="py-2.5 px-3"><div class="skeleton-text w-28 sm:w-36"></div></td>
+        <td class="py-2.5 px-2 text-center"><div class="skeleton-text w-6 mx-auto"></div></td>
+        <td class="py-2.5 px-2 text-center"><div class="skeleton-text w-6 mx-auto"></div></td>
+        <td class="py-2.5 px-2 text-center"><div class="skeleton-text w-6 mx-auto"></div></td>
+        <td class="py-2.5 px-2 text-center"><div class="skeleton-text w-6 mx-auto"></div></td>
+        <td class="py-2.5 px-2 text-center"><div class="skeleton-badge w-12 mx-auto"></div></td>
+      </tr>
+    `).join('');
+  },
+
   async renderDashboard() {
+    this.showDashboardTableSkeleton();
     const stats = await apiService.getDashboardStats(this.currentCommunityFilter);
 
     // ปรับตัวเลขสถิติ
@@ -563,7 +628,37 @@ const app = {
   // ----------------------------------------------------
   // 2. BENEFICIARIES & VISITS CONTROLLER
   // ----------------------------------------------------
+  showBeneficiariesSkeleton() {
+    const container = document.getElementById('beneficiaries-list');
+    if (!container) return;
+    container.innerHTML = Array(6).fill(0).map(() => `
+      <div class="skeleton-card space-y-3">
+        <div class="flex items-start justify-between gap-2.5">
+          <div class="flex items-center space-x-2.5 w-full min-w-0">
+            <div class="skeleton-avatar w-12 h-12 shrink-0"></div>
+            <div class="flex-1 space-y-2">
+              <div class="skeleton-text w-3/4"></div>
+              <div class="skeleton-text w-1/2"></div>
+            </div>
+          </div>
+          <div class="skeleton-badge shrink-0"></div>
+        </div>
+        <div class="space-y-2 pt-1">
+          <div class="skeleton-text w-1/3"></div>
+          <div class="skeleton-text w-5/6"></div>
+          <div class="skeleton-box h-16 w-full"></div>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-100">
+          <div class="skeleton-box h-9"></div>
+          <div class="skeleton-box h-9"></div>
+          <div class="skeleton-box h-9"></div>
+        </div>
+      </div>
+    `).join('');
+  },
+
   async renderBeneficiaries() {
+    this.showBeneficiariesSkeleton();
     const searchVal = document.getElementById('input-search-ben')?.value || '';
     const triageVal = document.getElementById('select-triage-filter')?.value || 'all';
     const comVal = document.getElementById('select-ben-community')?.value || null;
@@ -772,7 +867,26 @@ const app = {
   // ----------------------------------------------------
   // 4. WELFARE CONTROLLER
   // ----------------------------------------------------
+  showWelfareSkeleton() {
+    const container = document.getElementById('welfare-list');
+    if (!container) return;
+    container.innerHTML = Array(4).fill(0).map(() => `
+      <div class="skeleton-card space-y-3">
+        <div class="flex items-start justify-between">
+          <div class="space-y-2 w-2/3">
+            <div class="skeleton-box w-24 h-4"></div>
+            <div class="skeleton-text w-3/4"></div>
+            <div class="skeleton-text w-1/2"></div>
+          </div>
+          <div class="skeleton-badge"></div>
+        </div>
+        <div class="skeleton-box h-16 w-full"></div>
+      </div>
+    `).join('');
+  },
+
   async renderWelfare() {
+    this.showWelfareSkeleton();
     const user = apiService.getCurrentUser();
     const records = await apiService.getWelfareRecords(null, this.currentCommunityFilter);
     const container = document.getElementById('welfare-list');
@@ -1392,7 +1506,7 @@ ${mapLink}`;
   // ----------------------------------------------------
   openSettingsModal() {
     const provider = apiService.getProvider();
-    const gasUrl = localStorage.getItem('tmcare_gas_url') || '';
+    const gasUrl = gasDriver.getApiUrl() || '';
     const supaUrl = localStorage.getItem('tmcare_supabase_url') || '';
     const supaKey = localStorage.getItem('tmcare_supabase_key') || '';
 
@@ -1463,10 +1577,12 @@ ${mapLink}`;
     }
 
     try {
+      const startTime = Date.now();
       const res = await gasDriver.testConnection(url);
+      const latencyMs = Date.now() - startTime;
       if (res && res.success) {
         resultBox.className = "text-xs p-2.5 rounded-lg border bg-emerald-50 border-emerald-200 text-emerald-800";
-        resultBox.innerHTML = `<i class="fa-solid fa-circle-check mr-1 text-emerald-600"></i> <strong>เชื่อมต่อสำเร็จ!</strong> ฐานข้อมูล: ${res.appName || 'TMCare GAS'} (ความเร็วตอบกลับ ${res.latencyMs || '-'} ms)`;
+        resultBox.innerHTML = `<i class="fa-solid fa-circle-check mr-1 text-emerald-600"></i> <strong>เชื่อมต่อสำเร็จ!</strong> ฐานข้อมูล: ${res.databaseName || res.appName || 'TMCare GAS'} (ความเร็วตอบกลับ ${res.latencyMs || latencyMs} ms)`;
       } else {
         resultBox.className = "text-xs p-2.5 rounded-lg border bg-rose-50 border-rose-200 text-rose-800";
         resultBox.innerHTML = `<i class="fa-solid fa-circle-xmark mr-1 text-rose-600"></i> <strong>เชื่อมต่อไม่สำเร็จ:</strong> ${res ? (res.error || res.message) : 'ไม่สามารถเข้าถึง URL ได้'}<br><span class="text-[11px] text-rose-600 mt-1 block font-normal">คำแนะนำ: ตรวจสอบว่าในขั้นตอน Deploy ได้เลือก "Execute as: Me" และ "Who has access: Anyone" แล้วหรือไม่</span>`;

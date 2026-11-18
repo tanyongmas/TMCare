@@ -6,9 +6,26 @@
 const apiService = {
   // ผู้ใช้งานปัจจุบัน
   currentUser: null,
+  isGasConnected: null,
+  gasConnectionError: null,
+
+  setGasStatus(connected, errorMsg = null) {
+    this.isGasConnected = connected;
+    this.gasConnectionError = connected ? null : (errorMsg || 'ไม่สามารถเชื่อมต่อ Google Apps Script ได้');
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('tmcare:gas-status', {
+        detail: { connected: this.isGasConnected, error: this.gasConnectionError }
+      }));
+    }
+  },
 
   // โหลด Session ปัจจุบัน
   init() {
+    // ยกเลิกโหมด MOCK เดิมที่อาจค้างในเครื่อง ให้กลับมาใช้ GAS (Google Sheets)
+    if (localStorage.getItem('tmcare_provider') === 'MOCK') {
+      localStorage.setItem('tmcare_provider', 'GAS');
+    }
+
     const savedUser = localStorage.getItem('tmcare_session_user');
     if (savedUser) {
       try {
@@ -35,13 +52,17 @@ const apiService = {
     }
   },
 
-  // ดึงโหมดปัจจุบัน: 'GAS' | 'MOCK' | 'SUPABASE'
+  // ดึงโหมดปัจจุบัน: 'GAS' | 'SUPABASE'
   getProvider() {
-    return localStorage.getItem('tmcare_provider') || 'GAS';
+    const saved = localStorage.getItem('tmcare_provider');
+    if (!saved || saved === 'MOCK') {
+      return 'GAS';
+    }
+    return saved;
   },
 
   setProvider(provider) {
-    localStorage.setItem('tmcare_provider', provider);
+    localStorage.setItem('tmcare_provider', provider === 'MOCK' ? 'GAS' : provider);
   },
 
   // ซิงค์ข้อมูลทั้งหมดจาก Google Sheets มายังแคช LocalStorage
@@ -56,10 +77,13 @@ const apiService = {
         if (res.disasterStatuses) localStorage.setItem('tmcare_db_disaster_statuses', JSON.stringify(res.disasterStatuses));
         if (res.users) localStorage.setItem('tmcare_db_users', JSON.stringify(res.users));
         localStorage.setItem('tmcare_last_synced', new Date().toISOString());
+        this.setGasStatus(true);
         return true;
       }
+      this.setGasStatus(false, 'ไม่ได้รับข้อมูลตอบกลับที่ถูกต้องจาก Google Sheets');
     } catch (e) {
       console.warn("Sync from GAS failed:", e);
+      this.setGasStatus(false, e && e.message ? e.message : 'ไม่สามารถติดต่อ Google Apps Script ได้');
     }
     return false;
   },
@@ -218,9 +242,13 @@ const apiService = {
           if (res.welfareRecords) localStorage.setItem('tmcare_db_welfare_records', JSON.stringify(res.welfareRecords));
           if (res.disasterStatuses) localStorage.setItem('tmcare_db_disaster_statuses', JSON.stringify(res.disasterStatuses));
           if (res.users) localStorage.setItem('tmcare_db_users', JSON.stringify(res.users));
+          this.setGasStatus(true);
+        } else {
+          this.setGasStatus(false, 'ไม่ได้รับข้อมูลตอบกลับจาก Google Sheets');
         }
       } catch (err) {
         console.warn("GAS Connection failed, fallback to local storage:", err);
+        this.setGasStatus(false, err && err.message ? err.message : 'ไม่สามารถติดต่อ Google Apps Script ได้');
         list = JSON.parse(localStorage.getItem('tmcare_db_beneficiaries') || '[]');
       }
     } else {
