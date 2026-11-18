@@ -282,14 +282,16 @@ body {
 
 /* Large Touch Targets for Mobile */
 .touch-btn {
-  min-height: 42px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   user-select: none;
+  touch-action: manipulation;
+  transition: transform 0.12s ease, opacity 0.12s ease;
 }
 .touch-btn:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 /* Card hover animation */
@@ -545,5 +547,61 @@ body {
   background: linear-gradient(90deg, #f1f5f9 25%, #fce7f3 50%, #f1f5f9 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s infinite ease-in-out;
+}
+
+/* ==========================================================================
+   Mobile-First Touch & Responsive UX Enhancements
+   ========================================================================== */
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+.mobile-tab-btn {
+  min-height: 48px;
+  min-width: 64px;
+  border-radius: 0.75rem;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+}
+.mobile-tab-btn:active {
+  transform: scale(0.94);
+}
+.mobile-tab-btn.active-mobile-tab {
+  background-color: #fff1f2;
+  color: #e11d48;
+  font-weight: 600;
+}
+
+/* Hide scrollbar for horizontal mobile filter bars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (max-width: 640px) {
+  /* Prevent iOS Safari auto-zoom when focusing inputs */
+  input[type="text"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="password"],
+  input[type="url"],
+  input[type="search"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Ensure tall modals scroll smoothly inside mobile viewport */
+  .fixed.z-50 > div {
+    max-height: 92dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 

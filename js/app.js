@@ -13,6 +13,8 @@ const app = {
   dashboardMarkersLayer: null,
   disasterMap: null,
   disasterMarkersLayer: null,
+  benPickerMap: null,
+  benPickerMarker: null,
   triageChart: null,
 
   async init() {
@@ -30,6 +32,7 @@ const app = {
         apiService.syncFromGas().then(() => this.updateProviderStatusUI());
       }
     } else {
+      this.closeModal('modal-login');
       this.updateUserUI(user);
       await this.loadCurrentView();
     }
@@ -39,8 +42,8 @@ const app = {
     // SOS Quick Call
     const sosBtn = document.getElementById('btn-quick-sos');
     if (sosBtn) {
-      sosBtn.addEventListener('click', () => {
-        if (confirm("ต้องการโทรออกสายด่วนการแพทย์ฉุกเฉิน 1669 ทันทีหรือไม่?")) {
+      sosBtn.addEventListener('click', async () => {
+        if (await this.showConfirm("โทรออกสายด่วน 1669", "ต้องการโทรออกสายด่วนการแพทย์ฉุกเฉิน 1669 ทันทีหรือไม่?", "โทร 1669", "ยกเลิก", "warning")) {
           window.location.href = "tel:1669";
         }
       });
@@ -49,8 +52,8 @@ const app = {
     // Logout
     const logoutBtn = document.getElementById('btn-logout');
     if (logoutBtn) {
-      logoutBtn.addEventListener('click', () => {
-        if (confirm("ต้องการออกจากระบบ / สลับบัญชีผู้ใช้งานหรือไม่?")) {
+      logoutBtn.addEventListener('click', async () => {
+        if (await this.showConfirm("ออกจากระบบ", "ต้องการออกจากระบบ / สลับบัญชีผู้ใช้งานหรือไม่?", "ออกจากระบบ", "ยกเลิก", "question")) {
           apiService.logout();
           window.location.reload();
         }
@@ -116,7 +119,7 @@ const app = {
     const pin = pinInput.value.trim();
 
     if (!communityId) {
-      alert("กรุณาเลือกชุมชนที่ท่านรับผิดชอบ");
+      this.showAlert("กรุณาเลือกชุมชน", "กรุณาเลือกชุมชนที่ท่านรับผิดชอบ", "warning");
       return;
     }
 
@@ -126,7 +129,7 @@ const app = {
       this.updateUserUI(user);
       this.loadCurrentView();
     } catch (err) {
-      alert("เข้าสู่ระบบไม่สำเร็จ: " + err.message);
+      this.showAlert("เข้าสู่ระบบไม่สำเร็จ", err.message, "error");
     }
   },
 
@@ -144,7 +147,7 @@ const app = {
       this.updateUserUI(user);
       this.loadCurrentView();
     } catch (err) {
-      alert("เข้าสู่ระบบไม่สำเร็จ: " + err.message);
+      this.showAlert("เข้าสู่ระบบไม่สำเร็จ", err.message, "error");
     }
   },
 
@@ -617,7 +620,7 @@ const app = {
   viewCommunityBeneficiaries(comId) {
     const user = apiService.getCurrentUser();
     if (user.role === 'committee' && user.communityId !== comId) {
-      alert("ท่านสามารถดูข้อมูลได้เฉพาะชุมชนของท่านเท่านั้น");
+      this.showAlert("จำกัดสิทธิ์การเข้าถึง", "ท่านสามารถดูข้อมูลได้เฉพาะชุมชนของท่านเท่านั้น", "warning");
       return;
     }
     const comSelect = document.getElementById('select-ben-community');
@@ -714,18 +717,18 @@ const app = {
           </div>
 
           <!-- Action Buttons Grid -->
-          <div class="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-100 text-xs">
-            <button onclick="app.openVisitModal('${item.id}')" class="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200/90 font-medium py-1.5 px-1 rounded-lg text-center flex flex-col items-center transition shadow-xs">
-              <i class="fa-solid fa-stethoscope mb-0.5 text-sky-600"></i>
-              <span class="text-[10px] font-semibold">บันทึกเยี่ยม</span>
+          <div class="grid grid-cols-3 gap-2 pt-2.5 border-t border-slate-100 text-xs">
+            <button onclick="app.openVisitModal('${item.id}')" class="touch-btn bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200/90 font-medium py-2 px-1.5 rounded-xl text-center flex flex-col items-center transition shadow-xs">
+              <i class="fa-solid fa-stethoscope mb-0.5 text-sm text-sky-600"></i>
+              <span class="text-[11px] font-semibold">บันทึกเยี่ยม</span>
             </button>
-            <button onclick="app.openEmsCard('${item.id}')" class="bg-rose-50 hover:bg-rose-100 text-rose-700 font-medium py-1.5 px-1 rounded-lg text-center flex flex-col items-center">
-              <i class="fa-solid fa-truck-medical mb-0.5 text-rose-600"></i>
-              <span class="text-[10px]">บัตรฉุกเฉิน</span>
+            <button onclick="app.openEmsCard('${item.id}')" class="touch-btn bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/60 font-medium py-2 px-1.5 rounded-xl text-center flex flex-col items-center transition">
+              <i class="fa-solid fa-truck-medical mb-0.5 text-sm text-rose-600"></i>
+              <span class="text-[11px] font-semibold">บัตรฉุกเฉิน</span>
             </button>
-            <button onclick="app.openWelfareModalFor('${item.id}')" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-medium py-1.5 px-1 rounded-lg text-center flex flex-col items-center">
-              <i class="fa-solid fa-hand-holding-dollar mb-0.5 text-emerald-600"></i>
-              <span class="text-[10px]">ขอสวัสดิการ</span>
+            <button onclick="app.openWelfareModalFor('${item.id}')" class="touch-btn bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/60 font-medium py-2 px-1.5 rounded-xl text-center flex flex-col items-center transition">
+              <i class="fa-solid fa-hand-holding-dollar mb-0.5 text-sm text-emerald-600"></i>
+              <span class="text-[11px] font-semibold">ขอสวัสดิการ</span>
             </button>
           </div>
         </div>
@@ -741,6 +744,9 @@ const app = {
     const user = apiService.getCurrentUser();
     document.getElementById('form-beneficiary').reset();
     document.getElementById('form-ben-id').value = '';
+    document.getElementById('form-ben-subdistrict').value = 'ตันหยงมัส';
+    document.getElementById('form-ben-district').value = 'ระแงะ';
+    document.getElementById('form-ben-province').value = 'นราธิวาส';
     document.getElementById('modal-ben-title').textContent = "ลงทะเบียนผู้พิการ/กลุ่มเปราะบางรายใหม่";
 
     const comSelect = document.getElementById('form-ben-community');
@@ -751,8 +757,120 @@ const app = {
       comSelect.disabled = false;
     }
 
+    this.resetElderlyGroupSelection();
     this.updateAdlPreview(8);
     this.openModal('modal-beneficiary');
+    this.initBeneficiaryPickerMap();
+  },
+
+  elderlyGroupDescriptions: {
+    '1': 'ผู้สูงอายุที่มีภาวะพึ่งพิง กลุ่มที่ 1: เคลื่อนไหวได้บ้าง และอาจมีปัญหาการกิน หรือการขับถ่าย แต่ไม่มีภาวะสับสนทางสมอง',
+    '2': 'ผู้สูงอายุที่มีภาวะพึ่งพิง กลุ่มที่ 2: เคลื่อนไหวได้บ้าง และอาจมีปัญหาการกิน หรือการขับถ่าย และมีภาวะสับสนทางสมอง',
+    '3': 'ผู้สูงอายุที่มีภาวะพึ่งพิง กลุ่มที่ 3: เคลื่อนไหวเองไม่ได้ และอาจมีปัญหาการกินหรือการขับถ่าย หรือมีอาการเจ็บป่วยรุนแรง',
+    '4': 'ผู้สูงอายุที่มีภาวะพึ่งพิง กลุ่มที่ 4: เคลื่อนไหวเองไม่ได้ มีอาการเจ็บป่วยรุนแรง หรืออยู่ในระยะท้ายของชีวิต'
+  },
+
+  toggleElderlyGroup(groupNum) {
+    const input = document.getElementById('form-ben-elderly-group');
+    if (!input) return;
+    const nextVal = input.value === String(groupNum) ? '' : String(groupNum);
+    input.value = nextVal;
+    this.updateElderlyGroupButtons(nextVal);
+  },
+
+  resetElderlyGroupSelection() {
+    const input = document.getElementById('form-ben-elderly-group');
+    if (input) input.value = '';
+    this.updateElderlyGroupButtons('');
+  },
+
+  updateElderlyGroupButtons(selectedGroup) {
+    document.querySelectorAll('.elderly-group-btn').forEach(btn => {
+      const isSelected = btn.dataset.elderlyGroup === String(selectedGroup) && selectedGroup !== '';
+      const badge = btn.querySelector('.elderly-group-badge');
+      if (isSelected) {
+        btn.classList.remove('border-slate-200', 'bg-white', 'hover:border-rose-300', 'text-slate-700');
+        btn.classList.add('border-rose-500', 'bg-rose-100/80', 'text-rose-950', 'ring-2', 'ring-rose-500/25', 'shadow-sm');
+        if (badge) {
+          badge.classList.remove('border-slate-300', 'text-slate-500');
+          badge.classList.add('bg-rose-600', 'border-rose-600', 'text-white');
+        }
+      } else {
+        btn.classList.add('border-slate-200', 'bg-white', 'hover:border-rose-300', 'text-slate-700');
+        btn.classList.remove('border-rose-500', 'bg-rose-100/80', 'text-rose-950', 'ring-2', 'ring-rose-500/25', 'shadow-sm');
+        if (badge) {
+          badge.classList.add('border-slate-300', 'text-slate-500');
+          badge.classList.remove('bg-rose-600', 'border-rose-600', 'text-white');
+        }
+      }
+    });
+  },
+
+  initBeneficiaryPickerMap(lat = null, lng = null) {
+    const mapEl = document.getElementById('beneficiary-picker-map');
+    if (!mapEl || typeof L === 'undefined') return;
+
+    const inputLat = parseFloat(document.getElementById('form-ben-lat')?.value);
+    const inputLng = parseFloat(document.getElementById('form-ben-lng')?.value);
+    const targetLat = Number.isFinite(lat) ? lat : (Number.isFinite(inputLat) ? inputLat : TMCARE_CONFIG.MAP_CENTER.lat);
+    const targetLng = Number.isFinite(lng) ? lng : (Number.isFinite(inputLng) ? inputLng : TMCARE_CONFIG.MAP_CENTER.lng);
+    const defaultZoom = TMCARE_CONFIG.MAP_CENTER.zoom || 15;
+
+    if (!this.benPickerMap) {
+      this.benPickerMap = L.map('beneficiary-picker-map').setView([targetLat, targetLng], defaultZoom);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(this.benPickerMap);
+
+      this.benPickerMarker = L.marker([targetLat, targetLng], { draggable: true }).addTo(this.benPickerMap);
+
+      this.benPickerMarker.on('dragend', e => {
+        const pos = e.target.getLatLng();
+        this.setBeneficiaryCoords(pos.lat, pos.lng, false);
+      });
+
+      this.benPickerMap.on('click', e => {
+        this.setBeneficiaryCoords(e.latlng.lat, e.latlng.lng, true);
+      });
+    } else {
+      this.benPickerMarker.setLatLng([targetLat, targetLng]);
+      this.benPickerMap.setView([targetLat, targetLng], Math.max(this.benPickerMap.getZoom(), defaultZoom));
+    }
+
+    // รอให้ Modal แสดงผลเต็มที่ก่อนปรับขนาดแผนที่ Leaflet
+    setTimeout(() => {
+      if (this.benPickerMap) {
+        this.benPickerMap.invalidateSize();
+      }
+    }, 200);
+  },
+
+  setBeneficiaryCoords(lat, lng, moveMap = false) {
+    const latInput = document.getElementById('form-ben-lat');
+    const lngInput = document.getElementById('form-ben-lng');
+    if (latInput) latInput.value = Number(lat).toFixed(6);
+    if (lngInput) lngInput.value = Number(lng).toFixed(6);
+
+    if (this.benPickerMarker) {
+      this.benPickerMarker.setLatLng([lat, lng]);
+    }
+    if (moveMap && this.benPickerMap) {
+      this.benPickerMap.panTo([lat, lng]);
+    }
+  },
+
+  syncBeneficiaryMapFromInputs() {
+    const lat = parseFloat(document.getElementById('form-ben-lat')?.value);
+    const lng = parseFloat(document.getElementById('form-ben-lng')?.value);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    if (this.benPickerMarker) {
+      this.benPickerMarker.setLatLng([lat, lng]);
+    }
+    if (this.benPickerMap) {
+      this.benPickerMap.panTo([lat, lng]);
+    }
   },
 
   updateAdlPreview(score) {
@@ -776,15 +894,16 @@ const app = {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         pos => {
-          document.getElementById('form-ben-lat').value = pos.coords.latitude.toFixed(6);
-          document.getElementById('form-ben-lng').value = pos.coords.longitude.toFixed(6);
-          alert("จับพิกัด GPS สำเร็จ: " + pos.coords.latitude.toFixed(4) + ", " + pos.coords.longitude.toFixed(4));
+          this.setBeneficiaryCoords(pos.coords.latitude, pos.coords.longitude, true);
+          if (this.benPickerMap) {
+            this.benPickerMap.setView([pos.coords.latitude, pos.coords.longitude], 16);
+          }
+          this.showAlert("จับพิกัด GPS สำเร็จ", `พิกัด: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`, "success");
         },
         err => {
           // หากผู้ใช้ไม่ได้เปิด GPS บนเครื่อง ให้ใช้พิกัดกลาง ทต.ตันหยงมัส
-          document.getElementById('form-ben-lat').value = TMCARE_CONFIG.MAP_CENTER.lat;
-          document.getElementById('form-ben-lng').value = TMCARE_CONFIG.MAP_CENTER.lng;
-          alert("ไม่สามารถเข้าถึง GPS ได้ ระบบได้ตั้งค่าพิกัดศูนย์กลาง ทต.ตันหยงมัส ให้แทน");
+          this.setBeneficiaryCoords(TMCARE_CONFIG.MAP_CENTER.lat, TMCARE_CONFIG.MAP_CENTER.lng, true);
+          this.showAlert("ไม่สามารถเข้าถึง GPS ได้", "ระบบได้ตั้งค่าพิกัดศูนย์กลาง ทต.ตันหยงมัส ให้แทน (สามารถคลิกหรือลากหมุดบนแผนที่ได้)", "warning");
         }
       );
     }
@@ -794,6 +913,43 @@ const app = {
     e.preventDefault();
     const user = apiService.getCurrentUser();
 
+    const elderlyGroup = (document.getElementById('form-ben-elderly-group')?.value || '').trim();
+    const disabilityText = (document.getElementById('form-ben-disability')?.value || '').trim();
+
+    if (!elderlyGroup && !disabilityText) {
+      await this.showAlert(
+        "กรุณาระบุประเภทความเปราะบาง",
+        "กรุณาเลือกกลุ่มผู้สูงอายุที่มีภาวะพึ่งพิง หรือกรอกประเภทผู้พิการ อย่างน้อย 1 หัวข้อ",
+        "warning"
+      );
+      return;
+    }
+
+    const vulnerabilityParts = [];
+    if (elderlyGroup && this.elderlyGroupDescriptions[elderlyGroup]) {
+      vulnerabilityParts.push(this.elderlyGroupDescriptions[elderlyGroup]);
+    }
+    if (disabilityText) {
+      vulnerabilityParts.push(disabilityText.startsWith('ผู้พิการ') ? disabilityText : `ผู้พิการ: ${disabilityText}`);
+    }
+    const vulnerabilityType = vulnerabilityParts.join(' | ');
+
+    const houseNo = (document.getElementById('form-ben-house-no')?.value || '').trim();
+    const moo = (document.getElementById('form-ben-moo')?.value || '').trim();
+    const road = (document.getElementById('form-ben-road')?.value || '').trim();
+    const subdistrict = (document.getElementById('form-ben-subdistrict')?.value || 'ตันหยงมัส').trim();
+    const district = (document.getElementById('form-ben-district')?.value || 'ระแงะ').trim();
+    const province = (document.getElementById('form-ben-province')?.value || 'นราธิวาส').trim();
+
+    const addressParts = [];
+    if (houseNo) addressParts.push(houseNo);
+    if (moo) addressParts.push(/^(หมู่|ม\.)/.test(moo) ? moo : `หมู่ ${moo}`);
+    if (road) addressParts.push(/^(ถ\.|ถนน|ซ\.|ซอย)/.test(road) ? road : `ถ.${road}`);
+    if (subdistrict) addressParts.push(/^(ต\.|ตำบล)/.test(subdistrict) ? subdistrict : `ต.${subdistrict}`);
+    if (district) addressParts.push(/^(อ\.|อำเภอ)/.test(district) ? district : `อ.${district}`);
+    if (province) addressParts.push(/^(จ\.|จังหวัด)/.test(province) ? province : `จ.${province}`);
+    const fullAddress = addressParts.join(' ');
+
     const data = {
       id: document.getElementById('form-ben-id').value || null,
       communityId: user.role === 'committee' ? user.communityId : document.getElementById('form-ben-community').value,
@@ -802,11 +958,11 @@ const app = {
       lastName: document.getElementById('form-ben-lastname').value,
       cidMasked: document.getElementById('form-ben-cid').value,
       phone: document.getElementById('form-ben-phone').value,
-      address: document.getElementById('form-ben-address').value,
+      address: fullAddress,
       lat: parseFloat(document.getElementById('form-ben-lat').value) || TMCARE_CONFIG.MAP_CENTER.lat,
       lng: parseFloat(document.getElementById('form-ben-lng').value) || TMCARE_CONFIG.MAP_CENTER.lng,
       adlScore: parseInt(document.getElementById('form-ben-adl').value, 10) || 0,
-      vulnerabilityType: document.getElementById('form-ben-vulnerability').value,
+      vulnerabilityType,
       chronicDiseases: document.getElementById('form-ben-chronic').value,
       drugAllergies: document.getElementById('form-ben-allergies').value,
       medicalDevices: document.getElementById('form-ben-devices').value,
@@ -817,11 +973,11 @@ const app = {
 
     try {
       await apiService.saveBeneficiary(data);
-      alert("บันทึกข้อมูลผู้พิการ/กลุ่มเปราะบางเรียบร้อยแล้ว");
+      await this.showAlert("บันทึกสำเร็จ", "บันทึกข้อมูลผู้พิการ/กลุ่มเปราะบางเรียบร้อยแล้ว", "success");
       this.closeModal('modal-beneficiary');
       await this.renderBeneficiaries();
     } catch (err) {
-      alert("บันทึกไม่สำเร็จ: " + err.message);
+      this.showAlert("บันทึกไม่สำเร็จ", err.message, "error");
     }
   },
 
@@ -857,10 +1013,10 @@ const app = {
 
     try {
       await apiService.saveVisitLog(logData);
-      alert("บันทึกประวัติการเยี่ยมบ้านเรียบร้อยแล้ว");
+      await this.showAlert("บันทึกสำเร็จ", "บันทึกประวัติการเยี่ยมบ้านเรียบร้อยแล้ว", "success");
       this.closeModal('modal-visit');
     } catch (err) {
-      alert("บันทึกไม่สำเร็จ: " + err.message);
+      this.showAlert("บันทึกไม่สำเร็จ", err.message, "error");
     }
   },
 
@@ -1020,11 +1176,11 @@ const app = {
 
     try {
       await apiService.saveWelfareRecord(recordData);
-      alert("ยื่นคำร้องขอสวัสดิการเรียบร้อยแล้ว กองสวัสดิการสังคมจะดำเนินการตรวจสอบต่อไป");
+      await this.showAlert("ยื่นคำร้องสำเร็จ", "ยื่นคำร้องขอสวัสดิการเรียบร้อยแล้ว กองสวัสดิการสังคมจะดำเนินการตรวจสอบต่อไป", "success");
       this.closeModal('modal-welfare');
       await this.renderWelfare();
     } catch (err) {
-      alert("ยื่นคำร้องไม่สำเร็จ: " + err.message);
+      this.showAlert("ยื่นคำร้องไม่สำเร็จ", err.message, "error");
     }
   },
 
@@ -1032,10 +1188,10 @@ const app = {
     try {
       const deliveryDate = status === 'delivered' ? new Date().toISOString().split('T')[0] : null;
       await apiService.updateWelfareStatus(recordId, status, deliveryDate);
-      alert("ปรับปรุงสถานะคำร้องเรียบร้อยแล้ว");
+      await this.showAlert("อัปเดตสำเร็จ", "ปรับปรุงสถานะคำร้องเรียบร้อยแล้ว", "success");
       await this.renderWelfare();
     } catch (err) {
-      alert("ดำเนินการไม่สำเร็จ: " + err.message);
+      this.showAlert("ดำเนินการไม่สำเร็จ", err.message, "error");
     }
   },
 
@@ -1409,10 +1565,10 @@ const app = {
   async quickSetEvac(beneficiaryId, status) {
     let detail = '';
     if (status === 'need_help') {
-      detail = prompt("ระบุสิ่งที่ต้องการช่วยเหลือเร่งด่วน (เช่น ต้องการเรือท้องแบน, ออกซิเจนสำรอง, อาหาร):", "ต้องการเรือและรถพยาบาลเคลื่อนย้ายผู้ป่วยติดเตียง");
+      detail = await this.showPrompt("ระบุสิ่งที่ต้องการช่วยเหลือเร่งด่วน", "ต้องการเรือและรถพยาบาลเคลื่อนย้ายผู้ป่วยติดเตียง", "เช่น ต้องการเรือท้องแบน, ออกซิเจนสำรอง, อาหาร");
       if (detail === null) return;
     } else if (status === 'evacuated') {
-      detail = prompt("ระบุสถานที่อพยพไปพักพิง:", "ศูนย์พักพิงชั่วคราว ทต.ตันหยงมัส");
+      detail = await this.showPrompt("ระบุสถานที่อพยพไปพักพิง", "ศูนย์พักพิงชั่วคราว ทต.ตันหยงมัส", "ระบุชื่อศูนย์พักพิงหรือบ้านญาติ");
       if (detail === null) return;
     }
 
@@ -1423,7 +1579,7 @@ const app = {
       const bannerCount = document.getElementById('banner-need-help-count');
       if (bannerCount) bannerCount.textContent = `${stats.needEvacHelp} ราย`;
     } catch (err) {
-      alert("อัปเดตไม่สำเร็จ: " + err.message);
+      this.showAlert("อัปเดตไม่สำเร็จ", err.message, "error");
     }
   },
 
@@ -1494,10 +1650,10 @@ ${mapLink}`;
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(textToCopy).then(() => {
-        alert("คัดลอกข้อมูลฉุกเฉินและพิกัด Google Maps เรียบร้อยแล้ว! สามารถนำไปวาง (Paste) ในกลุ่ม LINE กู้ชีพหรือศูนย์บรรเทาสาธารณภัยได้ทันที");
+        this.showAlert("คัดลอกข้อมูลฉุกเฉินสำเร็จ", "คัดลอกข้อมูลและพิกัด Google Maps เรียบร้อยแล้ว สามารถนำไปวาง (Paste) ในกลุ่ม LINE กู้ชีพหรือศูนย์บรรเทาสาธารณภัยได้ทันที", "success");
       });
     } else {
-      prompt("คัดลอกข้อความด้านล่างนี้:", textToCopy);
+      this.showPrompt("คัดลอกข้อความด้านล่างนี้", textToCopy);
     }
   },
 
@@ -1535,7 +1691,7 @@ ${mapLink}`;
     }
   },
 
-  handleSaveSettings(e) {
+  async handleSaveSettings(e) {
     e.preventDefault();
     const provider = document.getElementById('settings-provider').value;
     const gasUrl = document.getElementById('settings-gas-url').value.trim();
@@ -1547,7 +1703,7 @@ ${mapLink}`;
     localStorage.setItem('tmcare_supabase_url', supaUrl);
     localStorage.setItem('tmcare_supabase_key', supaKey);
 
-    alert("บันทึกการตั้งค่าเรียบร้อยแล้ว ระบบจะทำการรีโหลดหน้าเว็บ");
+    await this.showAlert("บันทึกการตั้งค่าเรียบร้อยแล้ว", "ระบบจะทำการรีโหลดหน้าเว็บเพื่อใช้การตั้งค่าใหม่", "success");
     window.location.reload();
   },
 
@@ -1599,13 +1755,13 @@ ${mapLink}`;
   },
 
   async clearCacheAndSync() {
-    if (confirm("ต้องการล้างข้อมูลแคชในเบราว์เซอร์ และดึงข้อมูลใหม่ล่าสุดจาก Google Sheets หรือไม่?")) {
+    if (await this.showConfirm("ล้างข้อมูลแคชและซิงค์ใหม่", "ต้องการล้างข้อมูลแคชในเบราว์เซอร์ และดึงข้อมูลใหม่ล่าสุดจาก Google Sheets หรือไม่?", "ล้างแคชและซิงค์", "ยกเลิก", "warning")) {
       try {
         await apiService.clearCacheAndSync();
-        alert("ล้างแคชและเตรียมพร้อมซิงค์ข้อมูลใหม่เรียบร้อยแล้ว");
+        await this.showAlert("ซิงค์ข้อมูลสำเร็จ", "ล้างแคชและเตรียมพร้อมซิงค์ข้อมูลใหม่เรียบร้อยแล้ว", "success");
         window.location.reload();
       } catch (err) {
-        alert("การซิงค์ข้อมูลขัดข้อง: " + err.message);
+        this.showAlert("การซิงค์ข้อมูลขัดข้อง", err.message, "error");
       }
     }
   },
@@ -2026,6 +2182,63 @@ ${mapLink}`;
         document.body.classList.remove('overflow-hidden');
       }
     }
+  },
+
+  // ----------------------------------------------------
+  // SWEETALERT2 NOTIFICATION HELPERS
+  // ----------------------------------------------------
+  showAlert(title, text = '', icon = 'info') {
+    if (typeof Swal !== 'undefined') {
+      return Swal.fire({
+        title,
+        text,
+        icon,
+        confirmButtonText: 'ตกลง',
+        confirmButtonColor: '#e11d48',
+        customClass: { popup: 'rounded-2xl' }
+      });
+    }
+    alert(text ? `${title}\n${text}` : title);
+    return Promise.resolve();
+  },
+
+  async showConfirm(title, text = '', confirmText = 'ยืนยัน', cancelText = 'ยกเลิก', icon = 'question') {
+    if (typeof Swal !== 'undefined') {
+      const result = await Swal.fire({
+        title,
+        text,
+        icon,
+        showCancelButton: true,
+        confirmButtonText: confirmText,
+        cancelButtonText: cancelText,
+        confirmButtonColor: '#e11d48',
+        cancelButtonColor: '#64748b',
+        reverseButtons: true,
+        customClass: { popup: 'rounded-2xl' }
+      });
+      return !!result.isConfirmed;
+    }
+    return confirm(text ? `${title}\n${text}` : title);
+  },
+
+  async showPrompt(title, inputValue = '', inputPlaceholder = '') {
+    if (typeof Swal !== 'undefined') {
+      const result = await Swal.fire({
+        title,
+        input: 'text',
+        inputValue,
+        inputPlaceholder,
+        showCancelButton: true,
+        confirmButtonText: 'บันทึก',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#e11d48',
+        cancelButtonColor: '#64748b',
+        reverseButtons: true,
+        customClass: { popup: 'rounded-2xl' }
+      });
+      return result.isConfirmed ? (result.value ?? '') : null;
+    }
+    return prompt(title, inputValue);
   }
 };
 
