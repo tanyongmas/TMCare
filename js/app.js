@@ -680,21 +680,26 @@ const app = {
       return;
     }
 
+    const user = apiService.getCurrentUser();
+    const canEdit = user && user.role === 'officer';
+
     container.innerHTML = list.map(item => {
       const triageClass = item.triageLevel === 'red' ? 'triage-border-red' : (item.triageLevel === 'yellow' ? 'triage-border-yellow' : 'triage-border-green');
       const badgeClass = item.triageLevel === 'red' ? 'triage-badge-red' : (item.triageLevel === 'yellow' ? 'triage-badge-yellow' : 'triage-badge-green');
       const triageLabel = item.triageLevel === 'red' ? '🔴 สีแดง (ติดเตียง/วิกฤต)' : (item.triageLevel === 'yellow' ? '🟡 สีเหลือง (ติดบ้าน)' : '🟢 สีเขียว (ติดสังคม)');
       const comName = TMCARE_CONFIG.COMMUNITIES.find(c => c.id === item.communityId)?.name || item.communityId;
+      const avatarHtml = this.getBeneficiaryAvatarHtml(item);
+      const gridColsClass = canEdit ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3';
 
       return `
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 card-hover ${triageClass} flex flex-col justify-between space-y-3">
           <div>
             <div class="flex items-start justify-between gap-2.5">
               <div class="flex items-center space-x-2.5 min-w-0">
-                <img src="${item.photoUrl || 'https://images.unsplash.com/photo-1581579438747-1dc8d17bbce4?w=100'}" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1581579438747-1dc8d17bbce4?w=100'" alt="photo" class="w-12 h-12 rounded-xl object-cover border border-slate-200 shadow-sm shrink-0">
+                ${avatarHtml}
                 <div class="min-w-0">
                   <h4 class="font-bold text-slate-800 text-sm truncate">${item.prefix}${item.firstName} ${item.lastName}</h4>
-                  <div class="text-[11px] text-slate-500 truncate">อายุ ${item.age || '-'} ปี | เลข ปชช: ${item.cidMasked || '-'}</div>
+                  <div class="text-[11px] text-slate-500 truncate">อายุ ${item.age !== undefined && item.age !== null && item.age !== '' ? item.age : '-'} ปี | เลข ปชช: ${item.cidMasked || '-'}</div>
                 </div>
               </div>
               <span class="${badgeClass} shrink-0">
@@ -717,7 +722,7 @@ const app = {
           </div>
 
           <!-- Action Buttons Grid -->
-          <div class="grid grid-cols-3 gap-2 pt-2.5 border-t border-slate-100 text-xs">
+          <div class="grid ${gridColsClass} gap-2 pt-2.5 border-t border-slate-100 text-xs">
             <button onclick="app.openVisitModal('${item.id}')" class="touch-btn bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200/90 font-medium py-2 px-1.5 rounded-xl text-center flex flex-col items-center transition shadow-xs">
               <i class="fa-solid fa-stethoscope mb-0.5 text-sm text-sky-600"></i>
               <span class="text-[11px] font-semibold">บันทึกเยี่ยม</span>
@@ -730,10 +735,37 @@ const app = {
               <i class="fa-solid fa-hand-holding-dollar mb-0.5 text-sm text-emerald-600"></i>
               <span class="text-[11px] font-semibold">ขอสวัสดิการ</span>
             </button>
+            ${canEdit ? `
+            <button onclick="app.openEditBeneficiaryModal('${item.id}')" class="touch-btn bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 font-medium py-2 px-1.5 rounded-xl text-center flex flex-col items-center transition">
+              <i class="fa-solid fa-pen-to-square mb-0.5 text-sm text-amber-600"></i>
+              <span class="text-[11px] font-semibold">แก้ไขข้อมูล</span>
+            </button>
+            ` : ''}
           </div>
         </div>
       `;
     }).join('');
+  },
+
+  getBeneficiaryAvatarHtml(item) {
+    const prefix = (item.prefix || '').trim();
+    const isMale = prefix.includes('นาย') || prefix.includes('ด.ช.') || prefix.includes('เด็กชาย');
+    const ageNum = parseInt(item.age, 10);
+    const isChild = Number.isFinite(ageNum) && ageNum < 15;
+
+    const colorClass = isMale
+      ? 'bg-sky-100 text-sky-600 border-sky-200'
+      : 'bg-pink-100 text-pink-600 border-pink-200';
+
+    const iconClass = isChild
+      ? (isMale ? 'fa-solid fa-child' : 'fa-solid fa-child-dress')
+      : (isMale ? 'fa-solid fa-person' : 'fa-solid fa-person-dress');
+
+    return `
+      <div class="w-12 h-12 rounded-xl border shadow-sm shrink-0 flex items-center justify-center text-2xl ${colorClass}" aria-label="${isMale ? 'ชาย' : 'หญิง'}">
+        <i class="${iconClass}"></i>
+      </div>
+    `;
   },
 
   handleSearchBeneficiary() {
@@ -761,6 +793,124 @@ const app = {
     this.updateAdlPreview(8);
     this.openModal('modal-beneficiary');
     this.initBeneficiaryPickerMap();
+  },
+
+  parseAddressForForm(addressStr) {
+    const raw = (addressStr || '').trim();
+    const result = {
+      houseNo: '',
+      moo: '',
+      road: '',
+      subdistrict: 'ตันหยงมัส',
+      district: 'ระแงะ',
+      province: 'นราธิวาส'
+    };
+    if (!raw) return result;
+
+    let remaining = raw;
+    const provMatch = remaining.match(/(?:จ\.|จังหวัด)\s*([^\s]+)/);
+    if (provMatch) {
+      result.province = provMatch[1];
+      remaining = remaining.replace(provMatch[0], '').trim();
+    }
+    const distMatch = remaining.match(/(?:อ\.|อำเภอ)\s*([^\s]+)/);
+    if (distMatch) {
+      result.district = distMatch[1];
+      remaining = remaining.replace(distMatch[0], '').trim();
+    }
+    const subMatch = remaining.match(/(?:ต\.|ตำบล)\s*([^\s]+)/);
+    if (subMatch) {
+      result.subdistrict = subMatch[1];
+      remaining = remaining.replace(subMatch[0], '').trim();
+    }
+    const mooMatch = remaining.match(/(?:หมู่ที่|หมู่|ม\.)\s*([^\s]+)/);
+    if (mooMatch) {
+      result.moo = mooMatch[1];
+      remaining = remaining.replace(mooMatch[0], '').trim();
+    }
+    const roadMatch = remaining.match(/((?:ถ\.|ถนน|ซ\.|ซอย)\s*[^\s]+(?:\s+ซ\.\s*[^\s]+)?)/);
+    if (roadMatch) {
+      result.road = roadMatch[1].trim();
+      remaining = remaining.replace(roadMatch[0], '').trim();
+    }
+    result.houseNo = remaining.trim() || raw;
+    return result;
+  },
+
+  async openEditBeneficiaryModal(beneficiaryId) {
+    const user = apiService.getCurrentUser();
+    if (!user || user.role !== 'officer') {
+      await this.showAlert("ไม่มีสิทธิ์แก้ไข", "เฉพาะเจ้าหน้าที่กองสวัสดิการสังคมเท่านั้นที่สามารถแก้ไขข้อมูลได้", "warning");
+      return;
+    }
+
+    const ben = await apiService.getBeneficiaryById(beneficiaryId);
+    if (!ben) {
+      await this.showAlert("ไม่พบข้อมูล", "ไม่สามารถโหลดข้อมูลรายการนี้ได้", "error");
+      return;
+    }
+
+    document.getElementById('form-beneficiary').reset();
+    document.getElementById('form-ben-id').value = ben.id || '';
+    document.getElementById('modal-ben-title').textContent = "แก้ไขข้อมูลผู้พิการ/กลุ่มเปราะบาง";
+
+    const comSelect = document.getElementById('form-ben-community');
+    if (comSelect) {
+      comSelect.value = ben.communityId || '';
+      comSelect.disabled = false;
+    }
+
+    document.getElementById('form-ben-prefix').value = ben.prefix || '';
+    document.getElementById('form-ben-firstname').value = ben.firstName || '';
+    document.getElementById('form-ben-lastname').value = ben.lastName || '';
+    document.getElementById('form-ben-age').value = (ben.age !== undefined && ben.age !== null && ben.age !== '') ? ben.age : '';
+    document.getElementById('form-ben-cid').value = ben.cidMasked || '';
+    document.getElementById('form-ben-phone').value = ben.phone || '';
+
+    const addr = this.parseAddressForForm(ben.address);
+    document.getElementById('form-ben-house-no').value = addr.houseNo;
+    document.getElementById('form-ben-moo').value = addr.moo;
+    document.getElementById('form-ben-road').value = addr.road;
+    document.getElementById('form-ben-subdistrict').value = addr.subdistrict;
+    document.getElementById('form-ben-district').value = addr.district;
+    document.getElementById('form-ben-province').value = addr.province;
+
+    const latVal = Number.isFinite(parseFloat(ben.lat)) ? parseFloat(ben.lat) : TMCARE_CONFIG.MAP_CENTER.lat;
+    const lngVal = Number.isFinite(parseFloat(ben.lng)) ? parseFloat(ben.lng) : TMCARE_CONFIG.MAP_CENTER.lng;
+    document.getElementById('form-ben-lat').value = latVal.toFixed(6);
+    document.getElementById('form-ben-lng').value = lngVal.toFixed(6);
+
+    const adlScore = ben.adlScore !== undefined && ben.adlScore !== null ? ben.adlScore : 8;
+    document.getElementById('form-ben-adl').value = adlScore;
+    this.updateAdlPreview(adlScore);
+
+    // แยกค่า vulnerabilityType กลับเป็นกลุ่มผู้สูงอายุที่มีภาวะพึ่งพิง และผู้พิการ
+    this.resetElderlyGroupSelection();
+    const vulText = (ben.vulnerabilityType || '').trim();
+    const parts = vulText.split('|').map(s => s.trim()).filter(Boolean);
+    const disabilityParts = [];
+    parts.forEach(part => {
+      const groupMatch = part.match(/กลุ่มที่\s*([1-4])/);
+      if (part.includes('ผู้สูงอายุที่มีภาวะพึ่งพิง') && groupMatch) {
+        const g = groupMatch[1];
+        const hiddenInput = document.getElementById('form-ben-elderly-group');
+        if (hiddenInput) hiddenInput.value = g;
+        this.updateElderlyGroupButtons(g);
+      } else {
+        disabilityParts.push(part.replace(/^ผู้พิการ:\s*/, '').trim());
+      }
+    });
+    document.getElementById('form-ben-disability').value = disabilityParts.join(', ');
+
+    document.getElementById('form-ben-chronic').value = ben.chronicDiseases || '';
+    document.getElementById('form-ben-allergies').value = ben.drugAllergies || '';
+    document.getElementById('form-ben-devices').value = ben.medicalDevices || '';
+    document.getElementById('form-ben-hospital').value = ben.hospitalRef || 'รพ.ระแงะ';
+    document.getElementById('form-ben-caregiver-name').value = ben.caregiverName || '';
+    document.getElementById('form-ben-caregiver-phone').value = ben.caregiverPhone || '';
+
+    this.openModal('modal-beneficiary');
+    this.initBeneficiaryPickerMap(latVal, lngVal);
   },
 
   elderlyGroupDescriptions: {
@@ -956,6 +1106,7 @@ const app = {
       prefix: document.getElementById('form-ben-prefix').value,
       firstName: document.getElementById('form-ben-firstname').value,
       lastName: document.getElementById('form-ben-lastname').value,
+      age: parseInt(document.getElementById('form-ben-age').value, 10) || 0,
       cidMasked: document.getElementById('form-ben-cid').value,
       phone: document.getElementById('form-ben-phone').value,
       address: fullAddress,
@@ -1097,9 +1248,21 @@ const app = {
         }
       }
 
+      const typeLabelsMap = {
+        diaper: 'ผ้าอ้อมผู้ใหญ่ / แผ่นรองซับ (สปสช.)',
+        equipment: 'กายอุปกรณ์ (รถเข็นนั่งวีลแชร์ / ไม้เท้า / เตียงลม)',
+        relief_bag: 'ถุงยังชีพ / ข้าวสารอาหารแห้งฉุกเฉิน',
+        home_repair: 'ปรับปรุงสภาพแวดล้อมที่อยู่อาศัย / ทางลาด',
+        allowance: 'เงินสงเคราะห์ผู้มีรายได้น้อย / กองทุนฟื้นฟูฯ'
+      };
+      const requestTypeLabel = typeLabelsMap[item.requestType] || item.requestType || '-';
+
+      const formattedRequestDate = this.formatThaiDateTime(item.requestDate);
+      const formattedDeliveryDate = item.deliveryDate ? this.formatThaiDateTime(item.deliveryDate) : '';
+
       return `
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-2 text-xs">
-          <div class="flex items-start justify-between">
+          <div class="flex items-start justify-between gap-2">
             <div>
               <span class="text-[10px] text-rose-700 font-semibold bg-rose-50 px-2 py-0.5 rounded">${comName}</span>
               <h4 class="font-bold text-slate-800 text-sm mt-1">${item.itemDetail}</h4>
@@ -1109,10 +1272,11 @@ const app = {
           </div>
 
           <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-[11px] text-slate-600 space-y-1">
-            <div><strong>ผู้ส่งคำร้อง:</strong> ${item.requestedBy || '-'} (วันที่ ${item.requestDate})</div>
+            <div><strong>ประเภทที่ขอรับ:</strong> <span class="text-emerald-700 font-medium">${requestTypeLabel}</span></div>
+            <div><strong>ผู้ส่งคำร้อง:</strong> ${item.requestedBy || '-'} (วันที่ ${formattedRequestDate})</div>
             <div><strong>จำนวน/งบประมาณ:</strong> ${item.amount || '-'}</div>
             <div><strong>เหตุผลความจำเป็น:</strong> ${item.notes || '-'}</div>
-            ${item.deliveryDate ? `<div class="text-emerald-700 font-semibold"><strong>วันที่ส่งมอบ:</strong> ${item.deliveryDate}</div>` : ''}
+            ${formattedDeliveryDate ? `<div class="text-emerald-700 font-semibold"><strong>วันที่ส่งมอบ:</strong> ${formattedDeliveryDate}</div>` : ''}
           </div>
 
           ${officerActions ? `<div class="pt-2 flex justify-end space-x-2 border-t border-slate-100">${officerActions}</div>` : ''}
@@ -1133,6 +1297,36 @@ const app = {
     this.renderWelfare();
   },
 
+  formatThaiDateTime(dateInput) {
+    if (!dateInput) return '-';
+    const raw = String(dateInput).trim();
+    if (!raw) return '-';
+
+    // กรณีเป็นวันที่อย่างเดียว (YYYY-MM-DD)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const [y, m, d] = raw.split('-').map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      return dt.toLocaleDateString('th-TH', {
+        timeZone: 'UTC',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    }
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return raw;
+
+    return parsed.toLocaleString('th-TH', {
+      timeZone: 'Asia/Bangkok',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }) + ' น.';
+  },
+
   async openNewWelfareModal() {
     const beneficiaries = await apiService.getBeneficiaries();
     const select = document.getElementById('welfare-ben-select');
@@ -1147,7 +1341,25 @@ const app = {
     });
 
     document.getElementById('form-welfare').reset();
+    document.querySelectorAll('input[name="welfare-type-opt"]').forEach(chk => { chk.checked = false; });
+    const otherChk = document.getElementById('welfare-type-other-chk');
+    if (otherChk) otherChk.checked = false;
+    this.toggleWelfareOtherInput();
     this.openModal('modal-welfare');
+  },
+
+  toggleWelfareOtherInput() {
+    const otherChk = document.getElementById('welfare-type-other-chk');
+    const otherBox = document.getElementById('welfare-type-other-box');
+    const otherInput = document.getElementById('welfare-type-other-text');
+    if (!otherChk || !otherBox) return;
+    if (otherChk.checked) {
+      otherBox.classList.remove('hidden');
+      if (otherInput) otherInput.focus();
+    } else {
+      otherBox.classList.add('hidden');
+      if (otherInput) otherInput.value = '';
+    }
   },
 
   openWelfareModalFor(beneficiaryId) {
@@ -1164,13 +1376,34 @@ const app = {
     const ben = await apiService.getBeneficiaryById(benId);
     if (!ben) return;
 
+    const selectedTypes = Array.from(document.querySelectorAll('input[name="welfare-type-opt"]:checked'))
+      .map(el => el.value);
+
+    const otherChk = document.getElementById('welfare-type-other-chk');
+    if (otherChk && otherChk.checked) {
+      const otherText = (document.getElementById('welfare-type-other-text')?.value || '').trim();
+      if (!otherText) {
+        await this.showAlert("กรุณาระบุข้อมูลเพิ่มเติม", "กรุณากรอกรายละเอียดประเภทสวัสดิการในช่อง 'อื่น ๆ'", "warning");
+        document.getElementById('welfare-type-other-text')?.focus();
+        return;
+      }
+      selectedTypes.push(`อื่น ๆ: ${otherText}`);
+    }
+
+    if (selectedTypes.length === 0) {
+      await this.showAlert("กรุณาเลือกประเภทสวัสดิการ", "กรุณาเลือกประเภทสวัสดิการที่ขอรับอย่างน้อย 1 รายการ", "warning");
+      return;
+    }
+
+    const currentUser = apiService.getCurrentUser();
     const recordData = {
       beneficiaryId: benId,
       communityId: ben.communityId,
-      requestType: document.getElementById('welfare-type-select').value,
+      requestType: selectedTypes.join(', '),
       itemDetail: document.getElementById('welfare-item-detail').value,
-      amount: "1 ชุด / ตามสิทธิ",
+      amount: (document.getElementById('welfare-amount')?.value || '').trim() || '-',
       notes: document.getElementById('welfare-notes').value,
+      requestedBy: currentUser ? (currentUser.fullName || currentUser.role) : '-',
       status: "requested"
     };
 
@@ -1221,11 +1454,15 @@ const app = {
 
     this.disasterMarkersLayer.clearLayers();
 
-    // ดึงรายชื่อกลุ่มเปราะบาง
+    // ดึงรายชื่อกลุ่มเปราะบางและสถานะภัยพิบัติล่าสุด
     const beneficiaries = await apiService.getBeneficiaries();
+    const statuses = await apiService.getDisasterStatuses();
 
     beneficiaries.forEach(b => {
       if (!b.lat || !b.lng) return;
+
+      const statusItem = statuses.find(s => s.beneficiaryId === b.id);
+      const evacStatus = statusItem ? statusItem.evacStatus : 'safe_at_home';
 
       let pinClass = 'pin-green';
       let iconClass = 'fa-solid fa-person-walking';
@@ -1240,11 +1477,19 @@ const app = {
         iconClass = 'fa-solid fa-wheelchair';
       }
 
+      let statusBadgeHtml = '';
+      if (evacStatus === 'need_evacuation') {
+        statusBadgeHtml = '<span class="pin-status-badge pin-badge-evac" title="ต้องการอพยพ"><i class="fa-solid fa-person-running"></i></span>';
+      } else if (evacStatus === 'need_help') {
+        statusBadgeHtml = '<span class="pin-status-badge pin-badge-help" title="ขอความช่วยเหลือ"><i class="fa-solid fa-triangle-exclamation"></i></span>';
+      }
+
       const iconHtml = `
         <div class="map-pin-marker">
           <div class="map-pin-body ${pinClass}">
             <i class="${iconClass}"></i>
           </div>
+          ${statusBadgeHtml}
           ${pulseHtml}
         </div>
       `;
@@ -1258,7 +1503,7 @@ const app = {
       });
 
       L.marker([b.lat, b.lng], { icon: customIcon })
-        .bindPopup(this.createMapPopupContent(b), { maxWidth: 300, minWidth: 260 })
+        .bindPopup(this.createMapPopupContent(b, statusItem), { maxWidth: 300, minWidth: 260 })
         .addTo(this.disasterMarkersLayer);
     });
 
@@ -1269,7 +1514,7 @@ const app = {
   },
 
   // สร้าง Card Popup บนแผนที่ สวยงาม สีเดียวชัดเจน และเป็นระเบียบ
-  createMapPopupContent(b) {
+  createMapPopupContent(b, statusItem = null) {
     const comName = TMCARE_CONFIG.COMMUNITIES.find(c => c.id === b.communityId)?.name || b.communityId;
     
     let headerBgColor = 'bg-emerald-600';
@@ -1339,6 +1584,12 @@ const app = {
               <span class="text-slate-500">โทรผู้ดูแล:</span>
               <a href="tel:${b.caregiverPhone}" class="text-rose-600 font-bold underline"><i class="fa-solid fa-phone text-[10px] mr-1"></i>${b.caregiverPhone}</a>
             </div>` : ''}
+            ${statusItem && (statusItem.evacStatus === 'need_evacuation' || statusItem.evacStatus === 'need_help') ? `
+            <div class="pt-1 border-t border-slate-200/70">
+              <div class="${statusItem.evacStatus === 'need_evacuation' ? 'bg-orange-50 text-orange-800 border-orange-200' : 'bg-red-50 text-red-800 border-red-200'} border rounded-lg px-2 py-1 font-semibold">
+                ${statusItem.evacStatus === 'need_evacuation' ? '🚨 ต้องการอพยพ' : '⚠️ ต้องการความช่วยเหลือ'}${statusItem.needsDetail && statusItem.needsDetail !== '-' ? `: ${statusItem.needsDetail}` : ''}
+              </div>
+            </div>` : ''}
           </div>
 
           <!-- Action Buttons -->
@@ -1401,6 +1652,7 @@ const app = {
     // นับจำนวนสถิติสถานะอพยพ Real-time
     let countTotal = beneficiaries.length;
     let countNeedHelp = 0;
+    let countNeedEvac = 0;
     let countSafe = 0;
     let countEvacuated = 0;
 
@@ -1408,17 +1660,20 @@ const app = {
       const st = statuses.find(s => s.beneficiaryId === b.id);
       const ev = st ? st.evacStatus : 'safe_at_home';
       if (ev === 'need_help') countNeedHelp++;
+      else if (ev === 'need_evacuation') countNeedEvac++;
       else if (ev === 'evacuated') countEvacuated++;
       else countSafe++;
     });
 
     const elTotal = document.getElementById('evac-count-total');
     const elNeed = document.getElementById('evac-count-needhelp');
+    const elNeedEvac = document.getElementById('evac-count-needevac');
     const elSafe = document.getElementById('evac-count-safe');
     const elEvac = document.getElementById('evac-count-evacuated');
 
     if (elTotal) elTotal.textContent = `${countTotal} ราย`;
     if (elNeed) elNeed.textContent = `${countNeedHelp} ราย`;
+    if (elNeedEvac) elNeedEvac.textContent = `${countNeedEvac} ราย`;
     if (elSafe) elSafe.textContent = `${countSafe} ราย`;
     if (elEvac) elEvac.textContent = `${countEvacuated} ราย`;
 
@@ -1454,6 +1709,8 @@ const app = {
             evacLabel = '<span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px]">🏠 ปลอดภัยอยู่ที่บ้าน</span>';
           } else if (statusItem.evacStatus === 'need_help') {
             evacLabel = '<span class="bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded text-[10px] animate-pulse">⚠️ ต้องการความช่วยเหลือด่วน</span>';
+          } else if (statusItem.evacStatus === 'need_evacuation') {
+            evacLabel = '<span class="bg-orange-100 text-orange-800 font-bold px-2 py-0.5 rounded text-[10px] animate-pulse">🚨 ต้องการอพยพ</span>';
           } else if (statusItem.evacStatus === 'evacuated') {
             evacLabel = '<span class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]">✅ อพยพถึงศูนย์แล้ว</span>';
           }
@@ -1472,12 +1729,15 @@ const app = {
               ${statusItem.needsDetail || '-'}
             </td>
             <td class="py-2.5 px-2 text-center">
-              <div class="flex items-center justify-center space-x-1">
+              <div class="flex flex-wrap items-center justify-center gap-1">
                 <button onclick="app.quickSetEvac('${b.id}', 'safe_at_home')" title="ปลอดภัยที่บ้าน" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded text-[10px]">
                   🏠 ปลอดภัย
                 </button>
                 <button onclick="app.quickSetEvac('${b.id}', 'need_help')" title="ขอความช่วยเหลือ/เรือ" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-[10px] font-bold">
                   ⚠️ ขอช่วย
+                </button>
+                <button onclick="app.quickSetEvac('${b.id}', 'need_evacuation')" title="ต้องการอพยพ" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-[10px] font-bold">
+                  🚨 ต้องการอพยพ
                 </button>
                 <button onclick="app.quickSetEvac('${b.id}', 'evacuated')" title="อพยพแล้ว" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[10px]">
                   ✅ อพยพแล้ว
@@ -1512,6 +1772,8 @@ const app = {
             evacLabel = '<span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] font-medium">🏠 ปลอดภัยอยู่ที่บ้าน</span>';
           } else if (statusItem.evacStatus === 'need_help') {
             evacLabel = '<span class="bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded text-[11px] animate-pulse">⚠️ ต้องการความช่วยเหลือ</span>';
+          } else if (statusItem.evacStatus === 'need_evacuation') {
+            evacLabel = '<span class="bg-orange-100 text-orange-800 font-bold px-2 py-0.5 rounded text-[11px] animate-pulse">🚨 ต้องการอพยพ</span>';
           } else if (statusItem.evacStatus === 'evacuated') {
             evacLabel = '<span class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[11px]">✅ อพยพถึงศูนย์แล้ว</span>';
           }
@@ -1541,7 +1803,7 @@ const app = {
                 ${evacLabel}
               </div>
 
-              <div class="grid grid-cols-3 gap-1.5 pt-1 text-xs">
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1 text-xs">
                 <button onclick="app.quickSetEvac('${b.id}', 'safe_at_home')" class="touch-btn bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-1.5 px-1 rounded-lg text-center flex flex-col items-center">
                   <span class="text-xs">🏠</span>
                   <span class="text-[10px]">ปลอดภัย</span>
@@ -1549,6 +1811,10 @@ const app = {
                 <button onclick="app.quickSetEvac('${b.id}', 'need_help')" class="touch-btn bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-1 rounded-lg text-center flex flex-col items-center shadow-sm">
                   <span class="text-xs">⚠️</span>
                   <span class="text-[10px]">ขอช่วย/เรือ</span>
+                </button>
+                <button onclick="app.quickSetEvac('${b.id}', 'need_evacuation')" class="touch-btn bg-orange-500 hover:bg-orange-600 text-white font-bold py-1.5 px-1 rounded-lg text-center flex flex-col items-center shadow-sm">
+                  <span class="text-xs">🚨</span>
+                  <span class="text-[10px]">ต้องการอพยพ</span>
                 </button>
                 <button onclick="app.quickSetEvac('${b.id}', 'evacuated')" class="touch-btn bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-1.5 px-1 rounded-lg text-center flex flex-col items-center shadow-sm">
                   <span class="text-xs">✅</span>
@@ -1567,6 +1833,9 @@ const app = {
     if (status === 'need_help') {
       detail = await this.showPrompt("ระบุสิ่งที่ต้องการช่วยเหลือเร่งด่วน", "ต้องการเรือและรถพยาบาลเคลื่อนย้ายผู้ป่วยติดเตียง", "เช่น ต้องการเรือท้องแบน, ออกซิเจนสำรอง, อาหาร");
       if (detail === null) return;
+    } else if (status === 'need_evacuation') {
+      detail = await this.showPrompt("ระบุรายละเอียดการอพยพ / จุดรับตัว", "ต้องการรถ/เรือช่วยอพยพด่วน", "เช่น มีผู้ป่วยติดเตียง ต้องใช้เปลเคลื่อนย้าย");
+      if (detail === null) return;
     } else if (status === 'evacuated') {
       detail = await this.showPrompt("ระบุสถานที่อพยพไปพักพิง", "ศูนย์พักพิงชั่วคราว ทต.ตันหยงมัส", "ระบุชื่อศูนย์พักพิงหรือบ้านญาติ");
       if (detail === null) return;
@@ -1574,6 +1843,7 @@ const app = {
 
     try {
       await apiService.updateDisasterStatus(beneficiaryId, status, detail, status === 'evacuated' ? detail : '-');
+      await this.initLeafletMap();
       await this.renderDisasterChecklist();
       const stats = await apiService.getDashboardStats();
       const bannerCount = document.getElementById('banner-need-help-count');

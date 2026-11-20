@@ -212,6 +212,35 @@ body {
   50% { transform: translateX(-50%) scale(2); opacity: 0.15; }
 }
 
+/* Status Overlay Badge on Map Pin (Needs Evacuation / Need Help) */
+.pin-status-badge {
+  position: absolute;
+  top: -6px;
+  right: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  z-index: 5;
+  animation: pin-badge-pop 1.5s infinite ease-in-out;
+}
+.pin-badge-evac {
+  background-color: #ea580c;
+}
+.pin-badge-help {
+  background-color: #dc2626;
+}
+@keyframes pin-badge-pop {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.14); }
+}
+
 /* Custom Marker Pins on Map (Legacy fallback) */
 .custom-marker-pin {
   display: flex;

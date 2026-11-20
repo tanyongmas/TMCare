@@ -400,8 +400,8 @@ const apiService = {
 
     if (user.role === 'committee') {
       recordData.communityId = user.communityId;
-      recordData.requestedBy = user.fullName;
     }
+    recordData.requestedBy = recordData.requestedBy || user.fullName || user.role;
 
     const list = JSON.parse(localStorage.getItem('tmcare_db_welfare_records') || '[]');
 
@@ -412,7 +412,7 @@ const apiService = {
       }
     } else {
       recordData.id = `WEL-${Date.now().toString().slice(-5)}`;
-      recordData.requestDate = recordData.requestDate || new Date().toISOString().split('T')[0];
+      recordData.requestDate = recordData.requestDate || new Date().toISOString();
       recordData.status = recordData.status || 'requested';
       list.unshift(recordData);
     }
