@@ -673,7 +673,7 @@ const app = {
                 ${avatarHtml}
                 <div class="min-w-0">
                   <h4 class="font-bold text-slate-800 text-sm truncate">${item.prefix}${item.firstName} ${item.lastName}</h4>
-                  <div class="text-[11px] text-slate-500 truncate">อายุ ${item.age !== undefined && item.age !== null && item.age !== '' ? item.age : '-'} ปี | เลข ปชช: ${item.cidMasked || '-'}</div>
+                  <div class="text-[11px] text-slate-500 truncate">อายุ ${item.age !== undefined && item.age !== null && item.age !== '' ? item.age : '-'} ปี | เลข ปชช: ${this.formatThaiId(item.cidMasked) || '-'}</div>
                 </div>
               </div>
               <span class="${badgeClass} shrink-0">
@@ -838,8 +838,8 @@ const app = {
     document.getElementById('form-ben-firstname').value = ben.firstName || '';
     document.getElementById('form-ben-lastname').value = ben.lastName || '';
     document.getElementById('form-ben-age').value = (ben.age !== undefined && ben.age !== null && ben.age !== '') ? ben.age : '';
-    document.getElementById('form-ben-cid').value = ben.cidMasked || '';
-    document.getElementById('form-ben-phone').value = ben.phone || '';
+    document.getElementById('form-ben-cid').value = this.formatThaiId(ben.cidMasked);
+    document.getElementById('form-ben-phone').value = this.formatThaiPhone(ben.phone);
 
     const addr = this.parseAddressForForm(ben.address);
     document.getElementById('form-ben-house-no').value = addr.houseNo;
@@ -881,7 +881,7 @@ const app = {
     document.getElementById('form-ben-devices').value = ben.medicalDevices || '';
     document.getElementById('form-ben-hospital').value = ben.hospitalRef || 'รพ.ระแงะ';
     document.getElementById('form-ben-caregiver-name').value = ben.caregiverName || '';
-    document.getElementById('form-ben-caregiver-phone').value = ben.caregiverPhone || '';
+    document.getElementById('form-ben-caregiver-phone').value = this.formatThaiPhone(ben.caregiverPhone);
 
     this.openModal('modal-beneficiary');
     this.initBeneficiaryPickerMap(latVal, lngVal);
@@ -1081,8 +1081,8 @@ const app = {
       firstName: document.getElementById('form-ben-firstname').value,
       lastName: document.getElementById('form-ben-lastname').value,
       age: parseInt(document.getElementById('form-ben-age').value, 10) || 0,
-      cidMasked: document.getElementById('form-ben-cid').value,
-      phone: document.getElementById('form-ben-phone').value,
+      cidMasked: this.formatThaiId(document.getElementById('form-ben-cid').value),
+      phone: this.formatThaiPhone(document.getElementById('form-ben-phone').value),
       address: fullAddress,
       lat: parseFloat(document.getElementById('form-ben-lat').value) || TMCARE_CONFIG.MAP_CENTER.lat,
       lng: parseFloat(document.getElementById('form-ben-lng').value) || TMCARE_CONFIG.MAP_CENTER.lng,
@@ -1093,7 +1093,7 @@ const app = {
       medicalDevices: document.getElementById('form-ben-devices').value,
       hospitalRef: document.getElementById('form-ben-hospital').value,
       caregiverName: document.getElementById('form-ben-caregiver-name').value,
-      caregiverPhone: document.getElementById('form-ben-caregiver-phone').value
+      caregiverPhone: this.formatThaiPhone(document.getElementById('form-ben-caregiver-phone').value)
     };
 
     try {
@@ -1563,7 +1563,7 @@ const app = {
             ${b.caregiverPhone ? `
             <div class="flex items-center justify-between">
               <span class="text-slate-500">โทรผู้ดูแล:</span>
-              <a href="tel:${b.caregiverPhone}" class="text-rose-600 font-bold underline"><i class="fa-solid fa-phone text-[10px] mr-1"></i>${b.caregiverPhone}</a>
+              <a href="tel:${this.getCleanPhoneForTel(b.caregiverPhone)}" class="text-rose-600 font-bold underline"><i class="fa-solid fa-phone text-[10px] mr-1"></i>${this.formatThaiPhone(b.caregiverPhone)}</a>
             </div>` : ''}
             ${(() => {
               const ev = statusItem ? statusItem.evacStatus : 'safe_at_home';
@@ -1790,7 +1790,7 @@ const app = {
                 ${statusItem.needsDetail && statusItem.needsDetail !== '-' ? `<div class="text-rose-700 font-bold bg-rose-50 p-1.5 rounded border border-rose-200"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${statusItem.needsDetail}</div>` : ''}
                 <div class="text-slate-500 flex items-center justify-between pt-0.5">
                   <span>ผู้ดูแล: ${b.caregiverName || '-'}</span>
-                  ${b.caregiverPhone ? `<a href="tel:${b.caregiverPhone}" class="text-rose-600 font-bold underline"><i class="fa-solid fa-phone mr-1"></i>โทรหาผู้ดูแล</a>` : ''}
+                  ${b.caregiverPhone ? `<a href="tel:${this.getCleanPhoneForTel(b.caregiverPhone)}" class="text-rose-600 font-bold underline"><i class="fa-solid fa-phone mr-1"></i>โทรหาผู้ดูแล</a>` : ''}
                 </div>
               </div>
 
@@ -1871,7 +1871,7 @@ const app = {
         </div>
         <h4 class="text-base font-bold text-slate-800">${b.prefix}${b.firstName} ${b.lastName} (อายุ ${b.age || '-'} ปี)</h4>
         <div class="text-slate-600"><strong>ที่อยู่:</strong> ${b.address}</div>
-        <div class="text-slate-600"><strong>เบอร์โทรลูกบ้าน:</strong> <a href="tel:${b.phone}" class="text-rose-600 font-semibold underline">${b.phone || '-'}</a></div>
+        <div class="text-slate-600"><strong>เบอร์โทรลูกบ้าน:</strong> ${b.phone ? `<a href="tel:${this.getCleanPhoneForTel(b.phone)}" class="text-rose-600 font-semibold underline">${this.formatThaiPhone(b.phone)}</a>` : '-'}</div>
       </div>
 
       <div class="bg-red-50 p-3 rounded-xl border border-red-200 text-red-950 space-y-1">
@@ -1883,7 +1883,7 @@ const app = {
 
       <div class="bg-rose-50 p-3 rounded-xl border border-rose-200 text-rose-950 space-y-1">
         <div><strong>ผู้ดูแลหลัก (Caregiver):</strong> ${b.caregiverName || '-'}</div>
-        <div><strong>เบอร์โทรผู้ดูแล:</strong> <a href="tel:${b.caregiverPhone}" class="text-rose-700 font-bold underline">${b.caregiverPhone || '-'}</a></div>
+        <div><strong>เบอร์โทรผู้ดูแล:</strong> ${b.caregiverPhone ? `<a href="tel:${this.getCleanPhoneForTel(b.caregiverPhone)}" class="text-rose-700 font-bold underline">${this.formatThaiPhone(b.caregiverPhone)}</a>` : '-'}</div>
       </div>
 
       <div class="text-[11px] text-slate-400">
@@ -1913,7 +1913,7 @@ const app = {
 ⚠️ ภาวะ/โรคประจำตัว: ${b.chronicDiseases || '-'}
 ⚡ อุปกรณ์พยุงชีพ: ${b.medicalDevices || 'ไม่มี'}
 🚫 ประวัติแพ้ยา: ${b.drugAllergies || 'ไม่มี'}
-📞 เบอร์ผู้ดูแล: ${b.caregiverPhone || b.phone || '-'} (${b.caregiverName || 'ญาติ'})
+📞 เบอร์ผู้ดูแล: ${this.formatThaiPhone(b.caregiverPhone) || this.formatThaiPhone(b.phone) || '-'} (${b.caregiverName || 'ญาติ'})
 🗺️ พิกัดนำทาง Google Maps:
 ${mapLink}`;
 
@@ -2349,7 +2349,7 @@ ${mapLink}`;
                     <td style="text-align: center; font-weight: 600; color: #64748b;">${idx + 1}</td>
                     <td style="font-size: 7pt; color: #475569;">
                       <div style="font-weight: 700; color: #e11d48;">${b.id}</div>
-                      <div style="letter-spacing: -0.2px;">${b.cidMasked || '-'}</div>
+                      <div style="letter-spacing: -0.2px;">${this.formatThaiId(b.cidMasked) || '-'}</div>
                     </td>
                     <td style="font-weight: 700; color: #0f172a;">
                       ${b.prefix || ''}${b.firstName} ${b.lastName}
@@ -2374,7 +2374,7 @@ ${mapLink}`;
                     </td>
                     <td style="font-size: 7pt; line-height: 1.25;">
                       <div style="font-weight: 600; color: #1e293b;">${b.caregiverName || '-'}</div>
-                      <div style="font-weight: 700; color: #e11d48; font-size: 6.5pt;">${b.caregiverPhone || '-'}</div>
+                      <div style="font-weight: 700; color: #e11d48; font-size: 6.5pt;">${this.formatThaiPhone(b.caregiverPhone) || '-'}</div>
                     </td>
                   </tr>
                 `;
@@ -2426,6 +2426,81 @@ ${mapLink}`;
     setTimeout(() => {
       window.print();
     }, 150);
+  },
+
+  // ----------------------------------------------------
+  // FORMATTERS: THAI ID & PHONE NUMBERS
+  // ----------------------------------------------------
+  formatThaiId(raw) {
+    if (raw === null || raw === undefined || raw === '') return '';
+    const str = String(raw).trim();
+    if (!str) return '';
+    if (/[xX]/.test(str)) return str;
+
+    const digits = str.replace(/\D/g, '').slice(0, 13);
+    if (!digits) return str;
+    if (digits.length === 13) {
+      return `${digits[0]}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10, 12)}-${digits[12]}`;
+    }
+    return str;
+  },
+
+  getCleanPhoneForTel(raw) {
+    if (raw === null || raw === undefined || raw === '') return '';
+    let digits = String(raw).replace(/\D/g, '');
+    if (!digits) return '';
+    // กู้คืนเลข 0 นำหน้ากรณี Google Sheets แปลงเป็นตัวเลขแล้วตัด 0 ออก
+    if (digits.length === 9 && /^[689]/.test(digits)) {
+      digits = '0' + digits;
+    } else if (digits.length === 8 && /^[2-7]/.test(digits)) {
+      digits = '0' + digits;
+    }
+    return digits;
+  },
+
+  formatThaiPhone(raw) {
+    if (raw === null || raw === undefined || raw === '') return '';
+    const digits = this.getCleanPhoneForTel(raw);
+    if (!digits) return String(raw).trim();
+    if (digits.length === 10) {
+      return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+    }
+    if (digits.length === 9) {
+      if (digits.startsWith('02')) {
+        return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5, 9)}`;
+      }
+      return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 9)}`;
+    }
+    return digits;
+  },
+
+  handleCidInput(input) {
+    if (!input) return;
+    if (/[xX]/.test(input.value)) return;
+    const digits = input.value.replace(/\D/g, '').slice(0, 13);
+    let formatted = digits;
+    if (digits.length > 12) {
+      formatted = `${digits[0]}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10, 12)}-${digits[12]}`;
+    } else if (digits.length > 10) {
+      formatted = `${digits[0]}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10)}`;
+    } else if (digits.length > 5) {
+      formatted = `${digits[0]}-${digits.slice(1, 5)}-${digits.slice(5)}`;
+    } else if (digits.length > 1) {
+      formatted = `${digits[0]}-${digits.slice(1)}`;
+    }
+    input.value = formatted;
+  },
+
+  handlePhoneInput(input) {
+    if (!input) return;
+    const digits = input.value.replace(/\D/g, '').slice(0, 10);
+    let formatted = digits;
+    if (digits.length > 6) {
+      formatted = `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+    } else if (digits.length > 3) {
+      formatted = `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    }
+    input.value = formatted;
   },
 
   // ----------------------------------------------------

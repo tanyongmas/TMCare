@@ -358,19 +358,36 @@ function upsertRowById(sheet, data, idFieldName) {
   }
 
   var rowValues = [];
+  var textFields = ["cidMasked", "phone", "caregiverPhone"];
   for (var j = 0; j < headers.length; j++) {
     var field = headers[j];
     var val = data[field] !== undefined ? data[field] : "";
     if (val instanceof Date) {
       val = Utilities.formatDate(val, "Asia/Bangkok", "yyyy-MM-dd HH:mm:ss");
+    } else if (textFields.indexOf(field) !== -1 && val !== "") {
+      val = String(val);
     }
     rowValues.push(val);
   }
 
+  var targetRow = rowIndex;
   if (rowIndex !== -1) {
     sheet.getRange(rowIndex, 1, 1, headers.length).setValues([rowValues]);
   } else {
     sheet.appendRow(rowValues);
+    targetRow = sheet.getLastRow();
+  }
+
+  // บังคับรูปแบบ Text (@) สำหรับคอลัมน์บัตรประชาชนและเบอร์โทร เพื่อไม่ให้ Google Sheets ตัดเลข 0 นำหน้า
+  for (var k = 0; k < textFields.length; k++) {
+    var colIdx = headers.indexOf(textFields[k]);
+    if (colIdx !== -1 && targetRow > 1) {
+      var cell = sheet.getRange(targetRow, colIdx + 1);
+      cell.setNumberFormat("@");
+      if (rowValues[colIdx] !== "") {
+        cell.setValue(String(rowValues[colIdx]));
+      }
+    }
   }
 }
 
@@ -378,4 +395,102 @@ function upsertRowById(sheet, data, idFieldName) {
 function jsonResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * ----------------------------------------------------
+ * 4. ฟังก์ชันช่วยจัดรูปแบบข้อมูลเก่าทั้งชีต (กด Run ครั้งเดียวใน Apps Script)
+ *    - แปลง cidMasked เป็น X-XXXX-XXXXX-XX-X
+ *    - แปลง phone และ caregiverPhone เป็น 0XX-XXX-XXXX (กู้คืนเลข 0 ตัวหน้าอัตโนมัติ)
+ * ----------------------------------------------------
+ */
+function normalizeExistingContactFormats() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.BENEFICIARIES);
+  if (!sheet) {
+    Logger.log("ไม่พบแท็บ: " + SHEETS.BENEFICIARIES);
+    return;
+  }
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) {
+    Logger.log("ไม่มีข้อมูลสำหรับจัดรูปแบบ");
+    return;
+  }
+
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var cidCol = headers.indexOf("cidMasked");
+  var phoneCol = headers.indexOf("phone");
+  var cgPhoneCol = headers.indexOf("caregiverPhone");
+
+  var numRows = lastRow - 1;
+  var updatedCount = 0;
+
+  if (cidCol !== -1) {
+    var cidRange = sheet.getRange(2, cidCol + 1, numRows, 1);
+    cidRange.setNumberFormat("@");
+    var cidVals = cidRange.getValues();
+    for (var i = 0; i < cidVals.length; i++) {
+      var origCid = cidVals[i][0];
+      var nextCid = formatThaiIdGas_(origCid);
+      if (nextCid !== String(origCid || "")) updatedCount++;
+      cidVals[i][0] = nextCid;
+    }
+    cidRange.setValues(cidVals);
+  }
+
+  var phoneCols = [phoneCol, cgPhoneCol];
+  for (var p = 0; p < phoneCols.length; p++) {
+    var col = phoneCols[p];
+    if (col === -1) continue;
+    var pRange = sheet.getRange(2, col + 1, numRows, 1);
+    pRange.setNumberFormat("@");
+    var pVals = pRange.getValues();
+    for (var r = 0; r < pVals.length; r++) {
+      var origPh = pVals[r][0];
+      var nextPh = formatThaiPhoneGas_(origPh);
+      if (nextPh !== String(origPh || "")) updatedCount++;
+      pVals[r][0] = nextPh;
+    }
+    pRange.setValues(pVals);
+  }
+
+  Logger.log("จัดรูปแบบข้อมูลเดิมเรียบร้อยแล้ว (อัปเดตทั้งหมด " + updatedCount + " ช่อง)");
+}
+
+function formatThaiIdGas_(raw) {
+  if (raw === null || raw === undefined || raw === "") return "";
+  var str = String(raw).trim();
+  if (!str) return "";
+  if (/[xX]/.test(str)) return str;
+
+  var digits = str.replace(/\D/g, "").slice(0, 13);
+  if (digits.length === 13) {
+    return digits.charAt(0) + "-" + digits.slice(1, 5) + "-" + digits.slice(5, 10) + "-" + digits.slice(10, 12) + "-" + digits.charAt(12);
+  }
+  return str;
+}
+
+function formatThaiPhoneGas_(raw) {
+  if (raw === null || raw === undefined || raw === "") return "";
+  var digits = String(raw).replace(/\D/g, "");
+  if (!digits) return String(raw).trim();
+
+  if (digits.length === 9 && /^[689]/.test(digits)) {
+    digits = "0" + digits;
+  } else if (digits.length === 8 && /^[2-7]/.test(digits)) {
+    digits = "0" + digits;
+  }
+
+  if (digits.length === 10) {
+    return digits.slice(0, 3) + "-" + digits.slice(3, 6) + "-" + digits.slice(6, 10);
+  }
+  if (digits.length === 9) {
+    if (digits.indexOf("02") === 0) {
+      return digits.slice(0, 2) + "-" + digits.slice(2, 5) + "-" + digits.slice(5, 9);
+    }
+    return digits.slice(0, 3) + "-" + digits.slice(3, 6) + "-" + digits.slice(6, 9);
+  }
+  return digits;
 }

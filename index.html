@@ -930,11 +930,11 @@
             </div>
             <div class="sm:col-span-5">
               <label class="block font-medium text-slate-600 mb-1">เลขประจำตัวประชาชน</label>
-              <input type="text" id="form-ben-cid" placeholder="1-9602-xxxxx-xx-x" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5">
+              <input type="text" id="form-ben-cid" maxlength="17" inputmode="numeric" oninput="app.handleCidInput(this)" placeholder="1-9602-xxxxx-xx-x" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5">
             </div>
             <div class="sm:col-span-4">
               <label class="block font-medium text-slate-600 mb-1">เบอร์โทรติดต่อ</label>
-              <input type="tel" id="form-ben-phone" placeholder="08x-xxx-xxxx" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5">
+              <input type="tel" id="form-ben-phone" maxlength="12" inputmode="tel" oninput="app.handlePhoneInput(this)" placeholder="08x-xxx-xxxx" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5">
             </div>
           </div>
         </div>
@@ -1105,7 +1105,7 @@
             </div>
             <div>
               <label class="block font-medium text-slate-600 mb-1">เบอร์โทรผู้ดูแล</label>
-              <input type="tel" id="form-ben-caregiver-phone" placeholder="08x-xxx-xxxx" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5">
+              <input type="tel" id="form-ben-caregiver-phone" maxlength="12" inputmode="tel" oninput="app.handlePhoneInput(this)" placeholder="08x-xxx-xxxx" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5">
             </div>
           </div>
         </div>

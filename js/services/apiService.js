@@ -263,13 +263,21 @@ const apiService = {
     // กรองตามคำค้นหา
     if (searchKeyword && searchKeyword.trim()) {
       const q = searchKeyword.trim().toLowerCase();
-      list = list.filter(item => 
-        (item.firstName && item.firstName.toLowerCase().includes(q)) ||
-        (item.lastName && item.lastName.toLowerCase().includes(q)) ||
-        (item.cidMasked && item.cidMasked.includes(q)) ||
-        (item.address && item.address.toLowerCase().includes(q)) ||
-        (item.vulnerabilityType && item.vulnerabilityType.toLowerCase().includes(q))
-      );
+      const qDigits = q.replace(/\D/g, '');
+      list = list.filter(item => {
+        const cidStr = String(item.cidMasked || '').toLowerCase();
+        const cidDigits = cidStr.replace(/\D/g, '');
+        const phoneDigits = String(item.phone || '').replace(/\D/g, '');
+        const cgPhoneDigits = String(item.caregiverPhone || '').replace(/\D/g, '');
+        return (
+          (item.firstName && item.firstName.toLowerCase().includes(q)) ||
+          (item.lastName && item.lastName.toLowerCase().includes(q)) ||
+          cidStr.includes(q) ||
+          (qDigits && (cidDigits.includes(qDigits) || phoneDigits.includes(qDigits) || cgPhoneDigits.includes(qDigits))) ||
+          (item.address && item.address.toLowerCase().includes(q)) ||
+          (item.vulnerabilityType && item.vulnerabilityType.toLowerCase().includes(q))
+        );
+      });
     }
 
     // กรองตามกลุ่มสี
