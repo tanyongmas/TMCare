@@ -530,44 +530,18 @@ const app = {
 
     this.dashboardMarkersLayer.clearLayers();
 
-    // ดึงรายชื่อกลุ่มเปราะบางตามตัวกรองชุมชนปัจจุบัน
+    // ดึงรายชื่อกลุ่มเปราะบางตามตัวกรองชุมชนปัจจุบัน และสถานะภัยพิบัติล่าสุด
     const beneficiaries = await apiService.getBeneficiaries(this.currentCommunityFilter);
+    const statuses = await apiService.getDisasterStatuses();
 
     beneficiaries.forEach(b => {
       if (!b.lat || !b.lng) return;
 
-      let pinClass = 'pin-green';
-      let iconClass = 'fa-solid fa-person-walking';
-      let pulseHtml = '';
-
-      if (b.triageLevel === 'red') {
-        pinClass = 'pin-red';
-        iconClass = 'fa-solid fa-bed-pulse';
-        pulseHtml = '<div class="pin-pulse-red"></div>';
-      } else if (b.triageLevel === 'yellow') {
-        pinClass = 'pin-yellow';
-        iconClass = 'fa-solid fa-wheelchair';
-      }
-
-      const iconHtml = `
-        <div class="map-pin-marker">
-          <div class="map-pin-body ${pinClass}">
-            <i class="${iconClass}"></i>
-          </div>
-          ${pulseHtml}
-        </div>
-      `;
-
-      const customIcon = L.divIcon({
-        className: 'custom-leaflet-div-icon',
-        html: iconHtml,
-        iconSize: [34, 42],
-        iconAnchor: [17, 42],
-        popupAnchor: [0, -40]
-      });
+      const statusItem = statuses.find(s => s.beneficiaryId === b.id);
+      const customIcon = this.createMapPinIcon(b, statusItem);
 
       L.marker([b.lat, b.lng], { icon: customIcon })
-        .bindPopup(this.createMapPopupContent(b), { maxWidth: 300, minWidth: 260 })
+        .bindPopup(this.createMapPopupContent(b, statusItem), { maxWidth: 300, minWidth: 260 })
         .addTo(this.dashboardMarkersLayer);
     });
 
@@ -1462,45 +1436,7 @@ const app = {
       if (!b.lat || !b.lng) return;
 
       const statusItem = statuses.find(s => s.beneficiaryId === b.id);
-      const evacStatus = statusItem ? statusItem.evacStatus : 'safe_at_home';
-
-      let pinClass = 'pin-green';
-      let iconClass = 'fa-solid fa-person-walking';
-      let pulseHtml = '';
-
-      if (b.triageLevel === 'red') {
-        pinClass = 'pin-red';
-        iconClass = 'fa-solid fa-bed-pulse';
-        pulseHtml = '<div class="pin-pulse-red"></div>';
-      } else if (b.triageLevel === 'yellow') {
-        pinClass = 'pin-yellow';
-        iconClass = 'fa-solid fa-wheelchair';
-      }
-
-      let statusBadgeHtml = '';
-      if (evacStatus === 'need_evacuation') {
-        statusBadgeHtml = '<span class="pin-status-badge pin-badge-evac" title="ต้องการอพยพ"><i class="fa-solid fa-person-running"></i></span>';
-      } else if (evacStatus === 'need_help') {
-        statusBadgeHtml = '<span class="pin-status-badge pin-badge-help" title="ขอความช่วยเหลือ"><i class="fa-solid fa-triangle-exclamation"></i></span>';
-      }
-
-      const iconHtml = `
-        <div class="map-pin-marker">
-          <div class="map-pin-body ${pinClass}">
-            <i class="${iconClass}"></i>
-          </div>
-          ${statusBadgeHtml}
-          ${pulseHtml}
-        </div>
-      `;
-
-      const customIcon = L.divIcon({
-        className: 'custom-leaflet-div-icon',
-        html: iconHtml,
-        iconSize: [34, 42],
-        iconAnchor: [17, 42],
-        popupAnchor: [0, -40]
-      });
+      const customIcon = this.createMapPinIcon(b, statusItem);
 
       L.marker([b.lat, b.lng], { icon: customIcon })
         .bindPopup(this.createMapPopupContent(b, statusItem), { maxWidth: 300, minWidth: 260 })
@@ -1511,6 +1447,51 @@ const app = {
     setTimeout(() => {
       if (this.disasterMap) this.disasterMap.invalidateSize();
     }, 200);
+  },
+
+  // สร้างไอคอนหมุดแผนที่พร้อมสัญลักษณ์สถานะ EMS/ภัยพิบัติ (ใช้ร่วมกันทั้ง Dashboard และ Disaster Map)
+  createMapPinIcon(b, statusItem = null) {
+    const evacStatus = statusItem ? statusItem.evacStatus : 'safe_at_home';
+
+    let pinClass = 'pin-green';
+    let iconClass = 'fa-solid fa-person-walking';
+    let pulseHtml = '';
+
+    if (b.triageLevel === 'red') {
+      pinClass = 'pin-red';
+      iconClass = 'fa-solid fa-bed-pulse';
+      pulseHtml = '<div class="pin-pulse-red"></div>';
+    } else if (b.triageLevel === 'yellow') {
+      pinClass = 'pin-yellow';
+      iconClass = 'fa-solid fa-wheelchair';
+    }
+
+    let statusBadgeHtml = '<span class="pin-status-badge pin-badge-safe" title="ปลอดภัยอยู่ที่บ้าน"><i class="fa-solid fa-house"></i></span>';
+    if (evacStatus === 'need_evacuation') {
+      statusBadgeHtml = '<span class="pin-status-badge pin-badge-evac" title="ต้องการอพยพ"><i class="fa-solid fa-person-running"></i></span>';
+    } else if (evacStatus === 'need_help') {
+      statusBadgeHtml = '<span class="pin-status-badge pin-badge-help" title="ขอความช่วยเหลือ"><i class="fa-solid fa-triangle-exclamation"></i></span>';
+    } else if (evacStatus === 'evacuated') {
+      statusBadgeHtml = '<span class="pin-status-badge pin-badge-evacuated" title="อพยพแล้ว"><i class="fa-solid fa-check"></i></span>';
+    }
+
+    const iconHtml = `
+      <div class="map-pin-marker">
+        <div class="map-pin-body ${pinClass}">
+          <i class="${iconClass}"></i>
+        </div>
+        ${statusBadgeHtml}
+        ${pulseHtml}
+      </div>
+    `;
+
+    return L.divIcon({
+      className: 'custom-leaflet-div-icon',
+      html: iconHtml,
+      iconSize: [34, 42],
+      iconAnchor: [17, 42],
+      popupAnchor: [0, -40]
+    });
   },
 
   // สร้าง Card Popup บนแผนที่ สวยงาม สีเดียวชัดเจน และเป็นระเบียบ
@@ -1584,12 +1565,24 @@ const app = {
               <span class="text-slate-500">โทรผู้ดูแล:</span>
               <a href="tel:${b.caregiverPhone}" class="text-rose-600 font-bold underline"><i class="fa-solid fa-phone text-[10px] mr-1"></i>${b.caregiverPhone}</a>
             </div>` : ''}
-            ${statusItem && (statusItem.evacStatus === 'need_evacuation' || statusItem.evacStatus === 'need_help') ? `
-            <div class="pt-1 border-t border-slate-200/70">
-              <div class="${statusItem.evacStatus === 'need_evacuation' ? 'bg-orange-50 text-orange-800 border-orange-200' : 'bg-red-50 text-red-800 border-red-200'} border rounded-lg px-2 py-1 font-semibold">
-                ${statusItem.evacStatus === 'need_evacuation' ? '🚨 ต้องการอพยพ' : '⚠️ ต้องการความช่วยเหลือ'}${statusItem.needsDetail && statusItem.needsDetail !== '-' ? `: ${statusItem.needsDetail}` : ''}
-              </div>
-            </div>` : ''}
+            ${(() => {
+              const ev = statusItem ? statusItem.evacStatus : 'safe_at_home';
+              const detail = statusItem && statusItem.needsDetail && statusItem.needsDetail !== '-' ? `: ${statusItem.needsDetail}` : '';
+              const statusMap = {
+                safe_at_home: { cls: 'bg-slate-100 text-slate-700 border-slate-200', label: '🏠 ปลอดภัยอยู่ที่บ้าน' },
+                need_help: { cls: 'bg-red-50 text-red-800 border-red-200', label: '⚠️ ขอความช่วยเหลือ' },
+                need_evacuation: { cls: 'bg-orange-50 text-orange-800 border-orange-200', label: '🚨 ต้องการอพยพ' },
+                evacuated: { cls: 'bg-emerald-50 text-emerald-800 border-emerald-200', label: '✅ อพยพถึงศูนย์แล้ว' }
+              };
+              const cfg = statusMap[ev] || statusMap.safe_at_home;
+              return `
+                <div class="pt-1 border-t border-slate-200/70">
+                  <div class="${cfg.cls} border rounded-lg px-2 py-1 font-semibold">
+                    ${cfg.label}${detail}
+                  </div>
+                </div>
+              `;
+            })()}
           </div>
 
           <!-- Action Buttons -->
@@ -1701,45 +1694,48 @@ const app = {
           };
 
           const comName = TMCARE_CONFIG.COMMUNITIES.find(c => c.id === b.communityId)?.name || b.communityId;
-          const triageBadge = b.triageLevel === 'red' ? '🔴 สีแดง (ติดเตียง)' : (b.triageLevel === 'yellow' ? '🟡 สีเหลือง' : '🟢 สีเขียว');
-          const triageColor = b.triageLevel === 'red' ? 'text-red-600 font-bold' : (b.triageLevel === 'yellow' ? 'text-amber-600' : 'text-emerald-600');
+          const triageBadge = b.triageLevel === 'red' ? '🔴 ติดเตียง' : (b.triageLevel === 'yellow' ? '🟡 ติดบ้าน' : '🟢 ติดสังคม');
+          const triageColor = b.triageLevel === 'red' ? 'text-red-600 font-bold' : (b.triageLevel === 'yellow' ? 'text-amber-600 font-medium' : 'text-emerald-600 font-medium');
 
           let evacLabel = '';
           if (statusItem.evacStatus === 'safe_at_home') {
-            evacLabel = '<span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px]">🏠 ปลอดภัยอยู่ที่บ้าน</span>';
+            evacLabel = '<span class="inline-flex items-center whitespace-nowrap bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px]">🏠 ปลอดภัย</span>';
           } else if (statusItem.evacStatus === 'need_help') {
-            evacLabel = '<span class="bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded text-[10px] animate-pulse">⚠️ ต้องการความช่วยเหลือด่วน</span>';
+            evacLabel = '<span class="inline-flex items-center whitespace-nowrap bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded-md text-[10px] animate-pulse">⚠️ ขอช่วยเหลือ</span>';
           } else if (statusItem.evacStatus === 'need_evacuation') {
-            evacLabel = '<span class="bg-orange-100 text-orange-800 font-bold px-2 py-0.5 rounded text-[10px] animate-pulse">🚨 ต้องการอพยพ</span>';
+            evacLabel = '<span class="inline-flex items-center whitespace-nowrap bg-orange-100 text-orange-800 font-bold px-2 py-0.5 rounded-md text-[10px] animate-pulse">🚨 ต้องการอพยพ</span>';
           } else if (statusItem.evacStatus === 'evacuated') {
-            evacLabel = '<span class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]">✅ อพยพถึงศูนย์แล้ว</span>';
+            evacLabel = '<span class="inline-flex items-center whitespace-nowrap bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md text-[10px]">✅ อพยพแล้ว</span>';
           }
 
+          const fullNameText = `${b.prefix || ''}${b.firstName || ''} ${b.lastName || ''}`.trim();
           const tr = document.createElement('tr');
           tr.className = "hover:bg-slate-50 transition";
           tr.innerHTML = `
-            <td class="py-2.5 px-3">
-              <div class="font-bold text-slate-800">${b.prefix}${b.firstName} ${b.lastName}</div>
-              <div class="text-[11px] text-slate-500">${b.address}</div>
+            <td class="py-2.5 px-2.5 align-middle">
+              <div class="font-bold text-slate-800 truncate" title="${fullNameText}">${fullNameText}</div>
+              <div class="text-[11px] text-slate-500 truncate" title="${b.address || '-'}">${b.address || '-'}</div>
             </td>
-            <td class="py-2.5 px-2 text-rose-800">${comName}</td>
-            <td class="py-2.5 px-2 text-center ${triageColor}">${triageBadge}</td>
-            <td class="py-2.5 px-2">${evacLabel}</td>
-            <td class="py-2.5 px-2 text-slate-600 max-w-[200px] truncate" title="${statusItem.needsDetail}">
+            <td class="py-2.5 px-2 text-rose-800 align-middle">
+              <div class="truncate whitespace-nowrap" title="${comName}">${comName}</div>
+            </td>
+            <td class="py-2.5 px-1.5 text-center align-middle whitespace-nowrap text-[11px] ${triageColor}">${triageBadge}</td>
+            <td class="py-2.5 px-2 align-middle whitespace-nowrap">${evacLabel}</td>
+            <td class="py-2.5 px-2 text-slate-600 align-middle truncate" title="${statusItem.needsDetail || '-'}">
               ${statusItem.needsDetail || '-'}
             </td>
-            <td class="py-2.5 px-2 text-center">
-              <div class="flex flex-wrap items-center justify-center gap-1">
-                <button onclick="app.quickSetEvac('${b.id}', 'safe_at_home')" title="ปลอดภัยที่บ้าน" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded text-[10px]">
+            <td class="py-2.5 px-1.5 text-center align-middle">
+              <div class="flex items-center justify-center gap-1 whitespace-nowrap">
+                <button onclick="app.quickSetEvac('${b.id}', 'safe_at_home')" title="ปลอดภัยที่บ้าน" class="whitespace-nowrap shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-700 px-1.5 py-1 rounded-md text-[10px] transition">
                   🏠 ปลอดภัย
                 </button>
-                <button onclick="app.quickSetEvac('${b.id}', 'need_help')" title="ขอความช่วยเหลือ/เรือ" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-[10px] font-bold">
+                <button onclick="app.quickSetEvac('${b.id}', 'need_help')" title="ขอความช่วยเหลือ/เรือ" class="whitespace-nowrap shrink-0 bg-red-500 hover:bg-red-600 text-white px-1.5 py-1 rounded-md text-[10px] font-bold transition">
                   ⚠️ ขอช่วย
                 </button>
-                <button onclick="app.quickSetEvac('${b.id}', 'need_evacuation')" title="ต้องการอพยพ" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-[10px] font-bold">
+                <button onclick="app.quickSetEvac('${b.id}', 'need_evacuation')" title="ต้องการอพยพ" class="whitespace-nowrap shrink-0 bg-orange-500 hover:bg-orange-600 text-white px-1.5 py-1 rounded-md text-[10px] font-bold transition">
                   🚨 ต้องการอพยพ
                 </button>
-                <button onclick="app.quickSetEvac('${b.id}', 'evacuated')" title="อพยพแล้ว" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[10px]">
+                <button onclick="app.quickSetEvac('${b.id}', 'evacuated')" title="อพยพแล้ว" class="whitespace-nowrap shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white px-1.5 py-1 rounded-md text-[10px] transition">
                   ✅ อพยพแล้ว
                 </button>
               </div>
@@ -1844,6 +1840,9 @@ const app = {
     try {
       await apiService.updateDisasterStatus(beneficiaryId, status, detail, status === 'evacuated' ? detail : '-');
       await this.initLeafletMap();
+      if (this.dashboardMap) {
+        await this.initDashboardMap();
+      }
       await this.renderDisasterChecklist();
       const stats = await apiService.getDashboardStats();
       const bannerCount = document.getElementById('banner-need-help-count');
