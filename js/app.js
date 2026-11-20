@@ -1870,6 +1870,7 @@ const app = {
           <span class="text-xs font-bold px-2 py-0.5 rounded-full ${b.triageLevel === 'red' ? 'triage-badge-red' : 'triage-badge-yellow'}">${triageBadge}</span>
         </div>
         <h4 class="text-base font-bold text-slate-800">${b.prefix}${b.firstName} ${b.lastName} (อายุ ${b.age || '-'} ปี)</h4>
+        <div class="text-slate-600"><strong>เลขประจำตัวประชาชน:</strong> <span class="font-semibold text-slate-800">${this.formatThaiId(b.cidMasked) || '-'}</span></div>
         <div class="text-slate-600"><strong>ที่อยู่:</strong> ${b.address}</div>
         <div class="text-slate-600"><strong>เบอร์โทรลูกบ้าน:</strong> ${b.phone ? `<a href="tel:${this.getCleanPhoneForTel(b.phone)}" class="text-rose-600 font-semibold underline">${this.formatThaiPhone(b.phone)}</a>` : '-'}</div>
       </div>
@@ -1907,6 +1908,7 @@ const app = {
 
     const textToCopy = `🚨 [แจ้งเหตุกู้ชีพ-กู้ภัย ทต.ตันหยงมัส]
 👤 ผู้ป่วย: ${b.prefix}${b.firstName} ${b.lastName}
+🪪 เลข ปชช.: ${this.maskThaiIdForShare(b.cidMasked) || '-'}
 📍 ชุมชน: ${comName}
 🏠 ที่อยู่: ${b.address}
 🔴 ระดับ Triage: ${b.triageLevel === 'red' ? 'สีแดง (ติดเตียง/วิกฤต)' : 'สีเหลือง'}
@@ -2443,6 +2445,17 @@ ${mapLink}`;
       return `${digits[0]}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10, 12)}-${digits[12]}`;
     }
     return str;
+  },
+
+  maskThaiIdForShare(raw) {
+    const formatted = this.formatThaiId(raw);
+    if (!formatted) return '';
+    if (/[xX]/.test(formatted)) return formatted;
+    const digits = formatted.replace(/\D/g, '');
+    if (digits.length === 13) {
+      return `${digits[0]}-${digits.slice(1, 5)}-xxxxx-${digits.slice(10, 12)}-${digits[12]}`;
+    }
+    return formatted;
   },
 
   getCleanPhoneForTel(raw) {
