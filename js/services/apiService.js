@@ -563,15 +563,14 @@ const apiService = {
       else ageSuperElderly++;
     });
 
-    // คำนวณอุปกรณ์และความจำเป็นเร่งด่วน
+    // คำนวณอุปกรณ์และความจำเป็นเร่งด่วน (นับจากข้อมูลอุปกรณ์/โรคประจำตัวที่กรอกจริง ไม่นับจากคะแนน ADL)
     let needOxygen = 0, needBed = 0, needWheelchair = 0, needDiaper = 0;
     beneficiaries.forEach(b => {
       const dev = ((b.medicalDevices || '') + ' ' + (b.chronicDiseases || '')).toLowerCase();
-      const vul = (b.vulnerabilityType || '').toLowerCase();
       if (dev.includes('ออกซิเจน') || dev.includes('oxygen')) needOxygen++;
-      if (dev.includes('เตียง') || vul.includes('ติดเตียง') || (b.adlScore !== undefined && b.adlScore <= 4)) needBed++;
+      if (dev.includes('เตียง')) needBed++;
       if (dev.includes('วีลแชร์') || dev.includes('รถเข็น') || dev.includes('wheelchair')) needWheelchair++;
-      if (dev.includes('ผ้าอ้อม') || vul.includes('ติดเตียง') || (b.adlScore !== undefined && b.adlScore <= 4)) needDiaper++;
+      if (dev.includes('ผ้าอ้อม') || dev.includes('แพมเพิส') || dev.includes('diaper')) needDiaper++;
     });
 
     return {
