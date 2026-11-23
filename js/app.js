@@ -2001,7 +2001,7 @@ const app = {
       await apiService.updateDisasterStatus(beneficiaryId, status, detail, status === 'evacuated' ? detail : '-');
       await this.initLeafletMap();
       if (this.dashboardMap) {
-        await this.initDashboardMap();
+        await this.renderDashboardMap();
       }
       await this.renderDisasterChecklist();
       const stats = await apiService.getDashboardStats();
