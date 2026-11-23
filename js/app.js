@@ -763,7 +763,7 @@ const app = {
       comSelect.disabled = false;
     }
 
-    this.resetElderlyGroupSelection();
+    this.resetVulnerabilitySelections();
     this.updateAdlPreview(8);
     this.openModal('modal-beneficiary');
     this.initBeneficiaryPickerMap();
@@ -858,11 +858,26 @@ const app = {
     document.getElementById('form-ben-adl').value = adlScore;
     this.updateAdlPreview(adlScore);
 
-    // แยกค่า vulnerabilityType กลับเป็นกลุ่มผู้สูงอายุที่มีภาวะพึ่งพิง และผู้พิการ
-    this.resetElderlyGroupSelection();
+    // แยกค่า vulnerabilityType / disabilityTypes กลับเป็น 3.1, 3.2, 3.3
+    this.resetVulnerabilitySelections();
     const vulText = (ben.vulnerabilityType || '').trim();
     const parts = vulText.split('|').map(s => s.trim()).filter(Boolean);
-    const disabilityParts = [];
+    const matchedDisabilities = new Set();
+
+    // ตรวจสอบจากฟิลด์ disabilityTypes เดิมก่อน (ถ้ามี)
+    if (ben.disabilityTypes) {
+      String(ben.disabilityTypes).split(',').map(s => s.trim()).filter(Boolean).forEach(token => {
+        const numMatch = token.match(/^([1-7])\b/);
+        if (numMatch) {
+          matchedDisabilities.add(numMatch[1]);
+        } else {
+          Object.entries(this.disabilityTypeOptions).forEach(([k, label]) => {
+            if (token.includes(label) || label.includes(token)) matchedDisabilities.add(k);
+          });
+        }
+      });
+    }
+
     parts.forEach(part => {
       const groupMatch = part.match(/กลุ่มที่\s*([1-4])/);
       if (part.includes('ผู้สูงอายุที่มีภาวะพึ่งพิง') && groupMatch) {
@@ -870,11 +885,26 @@ const app = {
         const hiddenInput = document.getElementById('form-ben-elderly-group');
         if (hiddenInput) hiddenInput.value = g;
         this.updateElderlyGroupButtons(g);
+      } else if (part.includes('ผู้สูงอายุทั่วไป')) {
+        const genInput = document.getElementById('form-ben-general-elderly');
+        if (genInput) genInput.value = '1';
+        this.updateGeneralElderlyButton(true);
       } else {
-        disabilityParts.push(part.replace(/^ผู้พิการ:\s*/, '').trim());
+        Object.entries(this.disabilityTypeOptions).forEach(([k, label]) => {
+          const shortKey = label.split('/')[0];
+          if (part.includes(`${k}.`) || part.includes(label) || part.includes(shortKey)) {
+            matchedDisabilities.add(k);
+          }
+        });
       }
     });
-    document.getElementById('form-ben-disability').value = disabilityParts.join(', ');
+
+    if (matchedDisabilities.size > 0) {
+      const disArr = Array.from(matchedDisabilities).sort();
+      const disInput = document.getElementById('form-ben-disability-types');
+      if (disInput) disInput.value = disArr.join(',');
+      this.updateDisabilityTypeButtons(disArr);
+    }
 
     document.getElementById('form-ben-chronic').value = ben.chronicDiseases || '';
     document.getElementById('form-ben-allergies').value = ben.drugAllergies || '';
@@ -900,6 +930,126 @@ const app = {
     const nextVal = input.value === String(groupNum) ? '' : String(groupNum);
     input.value = nextVal;
     this.updateElderlyGroupButtons(nextVal);
+  },
+
+  disabilityTypeOptions: {
+    '1': 'ทางการเห็น',
+    '2': 'ทางการได้ยิน/สื่อความหมาย',
+    '3': 'ทางการเคลื่อนไหว/ร่างกาย',
+    '4': 'ทางจิตใจ/พฤติกรรม',
+    '5': 'ทางสติปัญญา',
+    '6': 'ทางการเรียนรู้',
+    '7': 'ทางออทิสติก'
+  },
+
+  resetVulnerabilitySelections() {
+    this.resetElderlyGroupSelection();
+    const disInput = document.getElementById('form-ben-disability-types');
+    if (disInput) disInput.value = '';
+    this.updateDisabilityTypeButtons([]);
+    const genInput = document.getElementById('form-ben-general-elderly');
+    if (genInput) genInput.value = '';
+    this.updateGeneralElderlyButton(false);
+  },
+
+  toggleDisabilityType(typeId) {
+    const input = document.getElementById('form-ben-disability-types');
+    if (!input) return;
+    const current = input.value ? input.value.split(',').filter(Boolean) : [];
+    const idStr = String(typeId);
+    const idx = current.indexOf(idStr);
+    if (idx === -1) {
+      current.push(idStr);
+    } else {
+      current.splice(idx, 1);
+    }
+    current.sort();
+    input.value = current.join(',');
+    this.updateDisabilityTypeButtons(current);
+  },
+
+  updateDisabilityTypeButtons(selectedIds = []) {
+    const selectedSet = new Set(selectedIds.map(String));
+    document.querySelectorAll('.disability-type-btn').forEach(btn => {
+      const isSelected = selectedSet.has(btn.dataset.disabilityType);
+      const badge = btn.querySelector('.disability-type-badge');
+      const icon = btn.querySelector('i');
+      if (isSelected) {
+        btn.classList.remove('border-slate-200', 'bg-white', 'hover:border-rose-300', 'text-slate-700');
+        btn.classList.add('border-rose-500', 'bg-rose-100/90', 'text-rose-950', 'ring-1', 'ring-rose-500/40', 'shadow-xs');
+        if (badge) {
+          badge.classList.remove('bg-slate-100', 'text-slate-600');
+          badge.classList.add('bg-rose-600', 'text-white');
+        }
+        if (icon) {
+          icon.classList.remove('text-slate-400');
+          icon.classList.add('text-rose-600');
+        }
+      } else {
+        btn.classList.add('border-slate-200', 'bg-white', 'hover:border-rose-300', 'text-slate-700');
+        btn.classList.remove('border-rose-500', 'bg-rose-100/90', 'text-rose-950', 'ring-1', 'ring-rose-500/40', 'shadow-xs');
+        if (badge) {
+          badge.classList.add('bg-slate-100', 'text-slate-600');
+          badge.classList.remove('bg-rose-600', 'text-white');
+        }
+        if (icon) {
+          icon.classList.add('text-slate-400');
+          icon.classList.remove('text-rose-600');
+        }
+      }
+    });
+
+    const summaryEl = document.getElementById('disability-selected-summary');
+    if (summaryEl) {
+      const labels = selectedIds
+        .map(id => this.disabilityTypeOptions[id] ? `${id}. ${this.disabilityTypeOptions[id]}` : null)
+        .filter(Boolean);
+      if (labels.length > 0) {
+        summaryEl.textContent = `ที่เลือก: ${labels.join(', ')}`;
+        summaryEl.classList.remove('hidden');
+      } else {
+        summaryEl.textContent = '';
+        summaryEl.classList.add('hidden');
+      }
+    }
+  },
+
+  toggleGeneralElderly() {
+    const input = document.getElementById('form-ben-general-elderly');
+    if (!input) return;
+    const nextSelected = input.value !== '1';
+    input.value = nextSelected ? '1' : '';
+    this.updateGeneralElderlyButton(nextSelected);
+  },
+
+  updateGeneralElderlyButton(isSelected) {
+    const btn = document.getElementById('btn-ben-general-elderly');
+    const badge = document.getElementById('badge-ben-general-elderly');
+    const icon = btn ? btn.querySelector('.fa-person-cane') : null;
+    if (!btn) return;
+    if (isSelected) {
+      btn.classList.remove('border-slate-200', 'bg-white', 'hover:border-rose-300', 'text-slate-700');
+      btn.classList.add('border-rose-500', 'bg-rose-100/90', 'text-rose-950', 'ring-1', 'ring-rose-500/40', 'shadow-xs');
+      if (badge) {
+        badge.classList.remove('border-slate-300', 'text-transparent');
+        badge.classList.add('bg-rose-600', 'border-rose-600', 'text-white');
+      }
+      if (icon) {
+        icon.classList.remove('text-slate-400');
+        icon.classList.add('text-rose-600');
+      }
+    } else {
+      btn.classList.add('border-slate-200', 'bg-white', 'hover:border-rose-300', 'text-slate-700');
+      btn.classList.remove('border-rose-500', 'bg-rose-100/90', 'text-rose-950', 'ring-1', 'ring-rose-500/40', 'shadow-xs');
+      if (badge) {
+        badge.classList.add('border-slate-300', 'text-transparent');
+        badge.classList.remove('bg-rose-600', 'border-rose-600', 'text-white');
+      }
+      if (icon) {
+        icon.classList.add('text-slate-400');
+        icon.classList.remove('text-rose-600');
+      }
+    }
   },
 
   resetElderlyGroupSelection() {
@@ -1038,12 +1188,14 @@ const app = {
     const user = apiService.getCurrentUser();
 
     const elderlyGroup = (document.getElementById('form-ben-elderly-group')?.value || '').trim();
-    const disabilityText = (document.getElementById('form-ben-disability')?.value || '').trim();
+    const disabilityRaw = (document.getElementById('form-ben-disability-types')?.value || '').trim();
+    const disabilityIds = disabilityRaw ? disabilityRaw.split(',').filter(Boolean) : [];
+    const isGeneralElderly = (document.getElementById('form-ben-general-elderly')?.value || '').trim() === '1';
 
-    if (!elderlyGroup && !disabilityText) {
+    if (!elderlyGroup && disabilityIds.length === 0 && !isGeneralElderly) {
       await this.showAlert(
         "กรุณาระบุประเภทความเปราะบาง",
-        "กรุณาเลือกกลุ่มผู้สูงอายุที่มีภาวะพึ่งพิง หรือกรอกประเภทผู้พิการ อย่างน้อย 1 หัวข้อ",
+        "กรุณาเลือกอย่างน้อย 1 หัวข้อ (ผู้สูงอายุที่มีภาวะพึ่งพิง, ประเภทผู้พิการ หรือผู้สูงอายุทั่วไป)",
         "warning"
       );
       return;
@@ -1053,10 +1205,17 @@ const app = {
     if (elderlyGroup && this.elderlyGroupDescriptions[elderlyGroup]) {
       vulnerabilityParts.push(this.elderlyGroupDescriptions[elderlyGroup]);
     }
-    if (disabilityText) {
-      vulnerabilityParts.push(disabilityText.startsWith('ผู้พิการ') ? disabilityText : `ผู้พิการ: ${disabilityText}`);
+    const disabilityLabels = disabilityIds
+      .map(id => this.disabilityTypeOptions[id] ? `${id}. ${this.disabilityTypeOptions[id]}` : null)
+      .filter(Boolean);
+    if (disabilityLabels.length > 0) {
+      vulnerabilityParts.push(`ผู้พิการ: ${disabilityLabels.join(', ')}`);
+    }
+    if (isGeneralElderly) {
+      vulnerabilityParts.push('ผู้สูงอายุทั่วไป (ไม่เป็นกลุ่มพึ่งพิง/ผู้พิการ)');
     }
     const vulnerabilityType = vulnerabilityParts.join(' | ');
+    const disabilityTypes = disabilityLabels.join(', ');
 
     const houseNo = (document.getElementById('form-ben-house-no')?.value || '').trim();
     const moo = (document.getElementById('form-ben-moo')?.value || '').trim();
@@ -1088,6 +1247,7 @@ const app = {
       lng: parseFloat(document.getElementById('form-ben-lng').value) || TMCARE_CONFIG.MAP_CENTER.lng,
       adlScore: parseInt(document.getElementById('form-ben-adl').value, 10) || 0,
       vulnerabilityType,
+      disabilityTypes,
       chronicDiseases: document.getElementById('form-ben-chronic').value,
       drugAllergies: document.getElementById('form-ben-allergies').value,
       medicalDevices: document.getElementById('form-ben-devices').value,
