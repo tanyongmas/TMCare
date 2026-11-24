@@ -406,32 +406,63 @@ const apiService = {
     const user = this.getCurrentUser();
     if (!user) throw new Error("กรุณาเข้าสู่ระบบก่อนทำรายการ");
 
+    if (recordData.id && user.role !== 'officer') {
+      throw new Error("เฉพาะเจ้าหน้าที่กองสวัสดิการสังคมเท่านั้นที่มีสิทธิ์แก้ไขคำร้อง");
+    }
+
     if (user.role === 'committee') {
       recordData.communityId = user.communityId;
     }
-    recordData.requestedBy = recordData.requestedBy || user.fullName || user.role;
 
     const list = JSON.parse(localStorage.getItem('tmcare_db_welfare_records') || '[]');
+    let savedRecord = recordData;
 
     if (recordData.id) {
       const idx = list.findIndex(r => r.id === recordData.id);
       if (idx !== -1) {
-        list[idx] = { ...list[idx], ...recordData };
+        const existing = list[idx];
+        savedRecord = {
+          ...existing,
+          ...recordData,
+          requestedBy: existing.requestedBy || recordData.requestedBy || user.fullName || user.role,
+          requestDate: existing.requestDate || recordData.requestDate || new Date().toISOString(),
+          status: existing.status || recordData.status || 'requested'
+        };
+        list[idx] = savedRecord;
       }
     } else {
       recordData.id = `WEL-${Date.now().toString().slice(-5)}`;
+      recordData.requestedBy = recordData.requestedBy || user.fullName || user.role;
       recordData.requestDate = recordData.requestDate || new Date().toISOString();
       recordData.status = recordData.status || 'requested';
       list.unshift(recordData);
+      savedRecord = recordData;
     }
 
     localStorage.setItem('tmcare_db_welfare_records', JSON.stringify(list));
 
     if (this.getProvider() === 'GAS' && gasDriver.getApiUrl()) {
-      gasDriver.saveWelfareRecord(recordData).catch(console.error);
+      gasDriver.saveWelfareRecord(savedRecord).catch(console.error);
     }
 
-    return recordData;
+    return savedRecord;
+  },
+
+  async deleteWelfareRecord(recordId) {
+    const user = this.getCurrentUser();
+    if (!user || user.role !== 'officer') {
+      throw new Error("เฉพาะเจ้าหน้าที่กองสวัสดิการสังคมเท่านั้นที่มีสิทธิ์ลบคำร้อง");
+    }
+
+    const list = JSON.parse(localStorage.getItem('tmcare_db_welfare_records') || '[]');
+    const filtered = list.filter(r => r.id !== recordId);
+    localStorage.setItem('tmcare_db_welfare_records', JSON.stringify(filtered));
+
+    if (this.getProvider() === 'GAS' && gasDriver.getApiUrl()) {
+      gasDriver.deleteWelfareRecord(recordId).catch(console.error);
+    }
+
+    return true;
   },
 
   // เจ้าหน้าที่อนุมัติคำร้อง/มอบสิ่งของ

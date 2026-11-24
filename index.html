@@ -1218,13 +1218,14 @@
   <div id="modal-welfare" onclick="if(event.target === this) app.closeModal('modal-welfare')" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
     <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-        <h3 class="font-bold text-base text-slate-800">ยื่นคำร้องขอสวัสดิการ / กายอุปกรณ์</h3>
+        <h3 id="modal-welfare-title" class="font-bold text-base text-slate-800">ยื่นคำร้องขอสวัสดิการ / กายอุปกรณ์</h3>
         <button onclick="app.closeModal('modal-welfare')" class="text-slate-400 hover:text-slate-600 p-1">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
 
       <form id="form-welfare" onsubmit="app.handleSaveWelfare(event)" class="space-y-3 text-xs">
+        <input type="hidden" id="welfare-id" value="">
         <div>
           <label class="block font-medium text-slate-700 mb-1">เลือกลูกบ้านที่ต้องการขอรับสิทธิ:</label>
           <select id="welfare-ben-select" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5">

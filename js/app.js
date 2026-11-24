@@ -1364,23 +1364,35 @@ const app = {
         statusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold">ส่งมอบเรียบร้อย</span>';
       }
 
-      // Action for officer only
-      let officerActions = '';
+      // Action for officer / executive (approve/deliver) and officer-only (edit/delete)
+      const isOfficer = user && user.role === 'officer';
+      const actionButtons = [];
       if (user.role !== 'committee') {
         if (item.status === 'requested') {
-          officerActions = `
-            <button onclick="app.handleUpdateWelfareStatus('${item.id}', 'approved')" class="bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1 rounded text-xs font-semibold">
+          actionButtons.push(`
+            <button onclick="app.handleUpdateWelfareStatus('${item.id}', 'approved')" class="touch-btn bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">
               อนุมัติคำร้อง
             </button>
-          `;
+          `);
         } else if (item.status === 'approved') {
-          officerActions = `
-            <button onclick="app.handleUpdateWelfareStatus('${item.id}', 'delivered')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded text-xs font-semibold">
+          actionButtons.push(`
+            <button onclick="app.handleUpdateWelfareStatus('${item.id}', 'delivered')" class="touch-btn bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">
               บันทึกการส่งมอบแล้ว
             </button>
-          `;
+          `);
         }
       }
+      if (isOfficer) {
+        actionButtons.unshift(`
+          <button onclick="app.openEditWelfareModal('${item.id}')" class="touch-btn bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-3 py-1.5 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1">
+            <i class="fa-solid fa-pen-to-square"></i> แก้ไข
+          </button>
+          <button onclick="app.handleDeleteWelfare('${item.id}')" class="touch-btn bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1">
+            <i class="fa-solid fa-trash-can"></i> ลบ
+          </button>
+        `);
+      }
+      const officerActions = actionButtons.join('');
 
       const typeLabelsMap = {
         diaper: 'ผ้าอ้อมผู้ใหญ่ / แผ่นรองซับ (สปสช.)',
@@ -1413,7 +1425,7 @@ const app = {
             ${formattedDeliveryDate ? `<div class="text-emerald-700 font-semibold"><strong>วันที่ส่งมอบ:</strong> ${formattedDeliveryDate}</div>` : ''}
           </div>
 
-          ${officerActions ? `<div class="pt-2 flex justify-end space-x-2 border-t border-slate-100">${officerActions}</div>` : ''}
+          ${officerActions ? `<div class="pt-2 flex flex-wrap justify-end gap-2 border-t border-slate-100">${officerActions}</div>` : ''}
         </div>
       `;
     }).join('');
@@ -1475,11 +1487,103 @@ const app = {
     });
 
     document.getElementById('form-welfare').reset();
+    const welfareIdInput = document.getElementById('welfare-id');
+    if (welfareIdInput) welfareIdInput.value = '';
+    const modalTitle = document.getElementById('modal-welfare-title');
+    if (modalTitle) modalTitle.textContent = 'ยื่นคำร้องขอสวัสดิการ / กายอุปกรณ์';
     document.querySelectorAll('input[name="welfare-type-opt"]').forEach(chk => { chk.checked = false; });
     const otherChk = document.getElementById('welfare-type-other-chk');
     if (otherChk) otherChk.checked = false;
     this.toggleWelfareOtherInput();
     this.openModal('modal-welfare');
+  },
+
+  async openEditWelfareModal(recordId) {
+    const user = apiService.getCurrentUser();
+    if (!user || user.role !== 'officer') {
+      await this.showAlert("ไม่มีสิทธิ์แก้ไข", "เฉพาะเจ้าหน้าที่กองสวัสดิการสังคมเท่านั้นที่สามารถแก้ไขคำร้องได้", "warning");
+      return;
+    }
+
+    const records = await apiService.getWelfareRecords();
+    const record = records.find(r => r.id === recordId);
+    if (!record) {
+      await this.showAlert("ไม่พบข้อมูล", "ไม่พบคำร้องสวัสดิการที่ต้องการแก้ไข", "error");
+      return;
+    }
+
+    await this.openNewWelfareModal();
+
+    const modalTitle = document.getElementById('modal-welfare-title');
+    if (modalTitle) modalTitle.textContent = 'แก้ไขคำร้องขอสวัสดิการ / กายอุปกรณ์';
+    const welfareIdInput = document.getElementById('welfare-id');
+    if (welfareIdInput) welfareIdInput.value = record.id || '';
+
+    const benSelect = document.getElementById('welfare-ben-select');
+    if (benSelect) benSelect.value = record.beneficiaryId || '';
+
+    const typeLabelsMap = {
+      diaper: 'ผ้าอ้อมผู้ใหญ่ / แผ่นรองซับ (สปสช.)',
+      equipment: 'กายอุปกรณ์ (รถเข็นนั่งวีลแชร์ / ไม้เท้า / เตียงลม)',
+      relief_bag: 'ถุงยังชีพ / ข้าวสารอาหารแห้งฉุกเฉิน',
+      home_repair: 'ปรับปรุงสภาพแวดล้อมที่อยู่อาศัย / ทางลาด',
+      allowance: 'เงินสงเคราะห์ผู้มีรายได้น้อย / กองทุนฟื้นฟูฯ'
+    };
+    const rawTypes = (record.requestType || '').split(',').map(s => s.trim()).filter(Boolean);
+    const otherTexts = [];
+
+    document.querySelectorAll('input[name="welfare-type-opt"]').forEach(chk => {
+      const matched = rawTypes.some(t => t === chk.value || typeLabelsMap[t] === chk.value);
+      chk.checked = matched;
+    });
+
+    const checkboxValues = Array.from(document.querySelectorAll('input[name="welfare-type-opt"]')).map(c => c.value);
+    rawTypes.forEach(t => {
+      const mapped = typeLabelsMap[t] || t;
+      if (t.startsWith('อื่น ๆ:')) {
+        otherTexts.push(t.replace(/^อื่น ๆ:\s*/, '').trim());
+      } else if (!checkboxValues.includes(mapped)) {
+        otherTexts.push(mapped);
+      }
+    });
+
+    const otherChk = document.getElementById('welfare-type-other-chk');
+    const otherInput = document.getElementById('welfare-type-other-text');
+    if (otherTexts.length > 0 && otherChk) {
+      otherChk.checked = true;
+      this.toggleWelfareOtherInput();
+      if (otherInput) otherInput.value = otherTexts.join(', ');
+    }
+
+    document.getElementById('welfare-item-detail').value = record.itemDetail || '';
+    const amountInput = document.getElementById('welfare-amount');
+    if (amountInput) amountInput.value = (record.amount && record.amount !== '-') ? record.amount : '';
+    document.getElementById('welfare-notes').value = record.notes || '';
+  },
+
+  async handleDeleteWelfare(recordId) {
+    const user = apiService.getCurrentUser();
+    if (!user || user.role !== 'officer') {
+      await this.showAlert("ไม่มีสิทธิ์ลบ", "เฉพาะเจ้าหน้าที่กองสวัสดิการสังคมเท่านั้นที่สามารถลบคำร้องได้", "warning");
+      return;
+    }
+
+    const confirmed = await this.showConfirm(
+      "ยืนยันการลบคำร้อง",
+      "ต้องการลบคำร้องขอสวัสดิการนี้ใช่หรือไม่? (ไม่สามารถกู้คืนได้)",
+      "ลบคำร้อง",
+      "ยกเลิก",
+      "warning"
+    );
+    if (!confirmed) return;
+
+    try {
+      await apiService.deleteWelfareRecord(recordId);
+      await this.showAlert("ลบคำร้องสำเร็จ", "ลบรายการคำร้องขอสวัสดิการเรียบร้อยแล้ว", "success");
+      await this.renderWelfare();
+    } catch (err) {
+      this.showAlert("ลบไม่สำเร็จ", err.message, "error");
+    }
   },
 
   toggleWelfareOtherInput() {
@@ -1529,25 +1633,33 @@ const app = {
       return;
     }
 
+    const editId = (document.getElementById('welfare-id')?.value || '').trim();
     const currentUser = apiService.getCurrentUser();
     const recordData = {
+      ...(editId ? { id: editId } : {}),
       beneficiaryId: benId,
       communityId: ben.communityId,
       requestType: selectedTypes.join(', '),
       itemDetail: document.getElementById('welfare-item-detail').value,
       amount: (document.getElementById('welfare-amount')?.value || '').trim() || '-',
       notes: document.getElementById('welfare-notes').value,
-      requestedBy: currentUser ? (currentUser.fullName || currentUser.role) : '-',
-      status: "requested"
+      ...(editId ? {} : {
+        requestedBy: currentUser ? (currentUser.fullName || currentUser.role) : '-',
+        status: "requested"
+      })
     };
 
     try {
       await apiService.saveWelfareRecord(recordData);
-      await this.showAlert("ยื่นคำร้องสำเร็จ", "ยื่นคำร้องขอสวัสดิการเรียบร้อยแล้ว กองสวัสดิการสังคมจะดำเนินการตรวจสอบต่อไป", "success");
+      await this.showAlert(
+        editId ? "แก้ไขคำร้องสำเร็จ" : "ยื่นคำร้องสำเร็จ",
+        editId ? "บันทึกการแก้ไขคำร้องขอสวัสดิการเรียบร้อยแล้ว" : "ยื่นคำร้องขอสวัสดิการเรียบร้อยแล้ว กองสวัสดิการสังคมจะดำเนินการตรวจสอบต่อไป",
+        "success"
+      );
       this.closeModal('modal-welfare');
       await this.renderWelfare();
     } catch (err) {
-      this.showAlert("ยื่นคำร้องไม่สำเร็จ", err.message, "error");
+      this.showAlert(editId ? "แก้ไขไม่สำเร็จ" : "ยื่นคำร้องไม่สำเร็จ", err.message, "error");
     }
   },
 

@@ -265,6 +265,13 @@ function doPost(e) {
       return jsonResponse({ status: "success", data: data });
     }
 
+    // 3.1 ลบคำร้องขอสวัสดิการ (Delete Welfare Record)
+    if (action === "deleteWelfareRecord") {
+      var sheetWelDel = ss.getSheetByName(SHEETS.WELFARE_RECORDS);
+      var deleted = deleteRowById_(sheetWelDel, data.id, "id");
+      return jsonResponse({ status: "success", deleted: deleted, id: data.id });
+    }
+
     // 4. อัปเดตสถานะอพยพ/ภัยพิบัติ (Disaster Status)
     if (action === "updateDisasterStatus") {
       var sheetDis = ss.getSheetByName(SHEETS.DISASTER_STATUS);
@@ -395,6 +402,27 @@ function upsertRowById(sheet, data, idFieldName) {
 function jsonResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ลบแถวตาม ID
+function deleteRowById_(sheet, idVal, idFieldName) {
+  if (!sheet || !idVal) return false;
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return false;
+
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var idColIdx = headers.indexOf(idFieldName);
+  if (idColIdx === -1) return false;
+
+  var ids = sheet.getRange(2, idColIdx + 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(idVal)) {
+      sheet.deleteRow(i + 2);
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

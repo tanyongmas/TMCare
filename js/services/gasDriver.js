@@ -107,6 +107,11 @@ const gasDriver = {
     return await this.request('saveWelfareRecord', {}, 'POST', record);
   },
 
+  // ลบคำร้องขอสวัสดิการ
+  async deleteWelfareRecord(id) {
+    return await this.request('deleteWelfareRecord', {}, 'POST', { id });
+  },
+
   // อัปเดตสถานะอพยพ/ภัยพิบัติ
   async updateDisasterStatus(status) {
     return await this.request('updateDisasterStatus', {}, 'POST', status);
